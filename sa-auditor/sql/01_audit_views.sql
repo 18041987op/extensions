@@ -150,6 +150,7 @@ group by service_advisor, service_writer_id;
 
 -- Carga por técnico (jobs autorizados en ROs WIP/Completed): horas asignadas,
 -- completadas y pendientes (= capacidad), y # de ROs.
+-- SOLO técnicos ACTIVOS (e.is_active): excluye ex-técnicos con jobs históricos.
 create view public.tech_board
 with (security_invoker = false) as
 with jb as (
@@ -161,14 +162,16 @@ with jb as (
 )
 select
   jb.technician_id,
-  coalesce(nullif(trim(e.full_name),''), 'Tech '||jb.technician_id) as technician,
+  e.full_name as technician,
   count(distinct jb.repair_order_id) as ros,
   round(coalesce(sum(jb.labor_hours),0),2)                                              as assigned_hrs,
   round(coalesce(sum(jb.labor_hours) filter (where jb.completed_date is not null),0),2) as complete_hrs,
   round(coalesce(sum(jb.labor_hours) filter (where jb.completed_date is null),0),2)     as incomplete_hrs
 from jb
-left join public.tekmetric_employees e on e.tekmetric_id = jb.technician_id
-where jb.technician_id is not null
+join public.tekmetric_employees e
+  on e.tekmetric_id = jb.technician_id
+ and e.is_active = true
+ and nullif(trim(e.full_name),'') is not null
 group by jb.technician_id, e.full_name;
 
 grant select on public.ro_audit  to anon;
