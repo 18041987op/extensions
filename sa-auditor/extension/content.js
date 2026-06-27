@@ -52,6 +52,7 @@
   let CFG = { adminNames: DEFAULT_ADMINS, identityOverride: "" };
   let ROLL = [], RO = [], TECH = [], myName = "", myRole = "unknown";
   let openSA = null, openTech = null;
+  const openROs = new Set();   // ROs the user expanded (collapsed by default)
   const F = { view:"audit", bucket:"wip", q:"", issue:null };   // UI / filter state
 
   /* ---------- Panel ---------- */
@@ -74,6 +75,15 @@
   w.style.display = "none";                       // hidden until a session is confirmed
   const $ = (id) => document.getElementById(id);
   const body = $("sa-body");
+
+  // Expand/collapse RO cards (delegated; survives re-renders via openROs).
+  body.addEventListener("click",(e)=>{
+    if (e.target.closest("a")) return;            // let the RO link work
+    const head = e.target.closest(".sa-ro-head"); if(!head) return;
+    const card = head.closest(".sa-ro"); if(!card) return;
+    const id = card.dataset.ro;
+    if (card.classList.toggle("open")) openROs.add(id); else openROs.delete(id);
+  });
 
   /* ---------- persistent position ---------- */
   let ui = (()=>{ try{return JSON.parse(localStorage.getItem(UIKEY))||{}}catch(e){return{}} })();
@@ -303,29 +313,49 @@
   function statusTag(r){ const b=bucketDef(bucketOf(r)); return b?`<span class="sa-stag ${b.key}">${b.label}</span>`:""; }
   function techTag(r){ return r.technician?`<span class="sa-ro-tech">🔧 ${esc(r.technician)}</span>`:""; }
 
+  function etaOverdue(r){ return r.eta && new Date(r.eta).getTime() < Date.now() && r.status!=="COMPLETE"; }
+  function jobBlock(j){
+    const off = !!j.off;
+    return `<div class="sa-job ${off?'off':''}">
+      <div class="sa-job-t">${off?'🔌 ':'🔧 '}${esc(j.title||"(untitled job)")}${off?' <span class="sa-offtag">OFF</span>':''}</div>
+      <div class="sa-job-iss">${(j.issues||[]).map(t=>`<span class="sa-chip jb">${esc(t)}</span>`).join("")}</div></div>`;
+  }
+  // Collapsed by default: a compact header (always visible) + a detail that
+  // expands on click. Current RO (hl) and user-opened ROs start expanded.
   function roCard(r, hl){
     const age = r._age==null?"—":(r._age===0?"today":r._age+" d");
-    // RO-level chips (VIN / miles / address / no authorized jobs)
-    const roChips = r._issues.filter(i=>RO_LEVEL_KEYS.includes(i.key))
-      .map(i=>`<span class="sa-chip ${i.sev}">${i.label}</span>`).join("");
-    // Per-job breakdown (title + what's missing), from problem_jobs
+    const open = hl || openROs.has(String(r.ro_number));
+    const roChips = r._issues.filter(i=>RO_LEVEL_KEYS.includes(i.key));
     const jobs = Array.isArray(r.problem_jobs) ? r.problem_jobs : [];
-    const jobHtml = jobs.length ? `<div class="sa-jobs">${jobs.map(j=>
-      `<div class="sa-job"><div class="sa-job-t">🔧 ${esc(j.title||"(untitled job)")}</div>
-        <div class="sa-job-iss">${(j.issues||[]).map(t=>`<span class="sa-chip jb">${esc(t)}</span>`).join("")}</div></div>`).join("")}</div>` : "";
-    const head = `${r.customer_waiting?'<span class="sa-chip high">🪑 Waiter</span>':''}${etaHtml(r)}${roChips}`;
-    const complete = !head && !jobHtml;
-    return `<div class="sa-ro ${sevClass(r)} ${hl?'hl':''}">
+    const activeJobs = jobs.filter(j=>!j.off);
+    const offJobs = jobs.filter(j=>j.off);
+    const count = roChips.length + activeJobs.length;
+
+    const flags = `${r.customer_waiting?'<span class="sa-chip high">🪑 Waiter</span>':''}`
+      + `${etaOverdue(r)?'<span class="sa-chip high">⏰ Overdue</span>':''}`
+      + (count>0 ? `<span class="sa-cnt">⚠ ${count}</span>`
+                 : (offJobs.length?`<span class="sa-cnt soft">🔌 ${offJobs.length}</span>`
+                                  :'<span class="sa-cnt ok">✓</span>'));
+
+    const chips = `${!etaOverdue(r)?etaHtml(r):''}${roChips.map(i=>`<span class="sa-chip ${i.sev}">${i.label}</span>`).join("")}`;
+    const activeHtml = activeJobs.map(jobBlock).join("");
+    const offHtml = offJobs.length
+      ? `<div class="sa-offnote">🔌 Turned-off option(s) have errors — fix before offering to the customer:</div>${offJobs.map(jobBlock).join("")}`
+      : "";
+    let detail = `${chips?`<div class="sa-chips">${chips}</div>`:""}${activeHtml}${offHtml}`;
+    if (!detail) detail = '<div class="sa-chips"><span class="sa-chip ok">✓ Complete</span></div>';
+
+    return `<div class="sa-ro ${sevClass(r)} ${hl?'hl':''} ${open?'open':''}" data-ro="${esc(r.ro_number)}">
       <span class="sa-ro-bar"></span>
       <div class="sa-ro-main">
-        <div class="sa-ro-top">
+        <div class="sa-ro-head">
           <a class="sa-ro-link" href="${roUrl(r)}" target="_blank" rel="noopener">#${esc(r.ro_number)}</a>
           <span class="sa-ro-veh">${esc(r.vehicle||"")}</span>
           ${techTag(r)}
-          <span class="sa-ro-age">${age}</span>
+          <span class="sa-ro-flags">${flags}<span class="sa-ro-age">${age}</span></span>
+          <span class="sa-ro-caret">▾</span>
         </div>
-        ${head||complete ? `<div class="sa-chips">${head}${complete?'<span class="sa-chip ok">✓ Complete</span>':''}</div>` : ""}
-        ${jobHtml}
+        <div class="sa-ro-detail">${detail}</div>
       </div></div>`;
   }
   function kpis(items){

@@ -149,8 +149,18 @@
 .sa-ro.est .sa-ro-bar{ background:#cbd5e1; } .sa-ro.est{ opacity:.9; }
 .sa-ro.est .sa-chip{ filter:saturate(.6); }
 .sa-ro.hl{ border-color:var(--teal); box-shadow:0 0 0 2px rgba(22,182,168,.28); }
-.sa-ro-main{ flex:1; padding:9px 11px; min-width:0; }
-.sa-ro-top{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.sa-ro-main{ flex:1; min-width:0; }
+.sa-ro-top{ display:flex; align-items:center; gap:8px; margin-bottom:6px; padding:9px 11px; }
+/* collapsible card */
+.sa-ro-head{ display:flex; align-items:center; gap:8px; padding:9px 11px; cursor:pointer; }
+.sa-ro-flags{ margin-left:auto; display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+.sa-ro-caret{ color:var(--muted); font-size:11px; transition:transform .22s; flex:0 0 auto; }
+.sa-ro.open .sa-ro-caret{ transform:rotate(180deg); }
+.sa-ro-detail{ max-height:0; opacity:0; overflow:hidden; padding:0 11px; transition:max-height .28s ease, opacity .2s ease, padding .2s ease; }
+.sa-ro.open .sa-ro-detail{ max-height:1600px; opacity:1; padding:0 11px 10px; }
+.sa-cnt{ font-size:11px; font-weight:800; padding:2px 8px; border-radius:20px; background:var(--high-bg); color:var(--high); white-space:nowrap; }
+.sa-cnt.soft{ background:#f1f5f9; color:#64748b; }
+.sa-cnt.ok{ background:var(--ok-bg); color:var(--ok); }
 .sa-ro-link{ color:var(--navy); font-weight:800; text-decoration:none; font-size:13.5px; }
 .sa-ro-link:hover{ color:var(--teal2); text-decoration:underline; }
 .sa-ro-veh{ flex:1; font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -168,6 +178,9 @@
 .sa-job{ background:#f8fafc; border:1px solid var(--line); border-left:3px solid var(--med); border-radius:8px; padding:6px 9px; }
 .sa-job-t{ font-size:12px; font-weight:700; color:var(--ink); margin-bottom:4px; }
 .sa-job-iss{ display:flex; flex-wrap:wrap; gap:4px; }
+.sa-job.off{ border-left-color:#94a3b8; background:#f1f5f9; opacity:.92; }
+.sa-offtag{ font-size:9px; font-weight:800; background:#475569; color:#fff; padding:1px 5px; border-radius:4px; letter-spacing:.4px; vertical-align:1px; }
+.sa-offnote{ font-size:11px; font-weight:600; color:var(--med); margin:8px 0 5px; }
 
 /* empty states */
 .sa-empty{ background:var(--card); border:1px dashed var(--line); border-radius:12px; padding:22px 14px; text-align:center; }

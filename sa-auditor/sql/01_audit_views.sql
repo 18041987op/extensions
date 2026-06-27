@@ -37,10 +37,10 @@ with active_ro as (
   select * from public.tekmetric_repair_orders
   where deleted_at is null and status in ('ESTIMATE','REPAIR_IN_PROGRESS','COMPLETE')
 ),
--- Un row por JOB seleccionado (excluye jobs "apagados": selected=false).
+-- Un row por JOB (incluye apagados). sel=false => "apagado" (opción rechazada).
 jobx as (
   select j.repair_order_id, j.tekmetric_id as job_id, j.name as title,
-    j.authorized, j.labor_hours,
+    j.authorized, j.labor_hours, coalesce(j.selected,false) as sel,
     (j.authorized and j.technician_id is null)     as no_tech,
     (j.authorized and coalesce(j.labor_hours,0)=0) as no_labor,
     coalesce(bool_or(li.line_type ilike '%part%' and (li.unit_price is null or li.unit_price=0)),false) as no_price,
@@ -49,22 +49,25 @@ jobx as (
   from public.tekmetric_jobs j
   left join public.tekmetric_job_line_items li
     on li.job_tekmetric_id = j.tekmetric_id and li.deleted_at is null
-  where j.deleted_at is null and coalesce(j.archived,false)=false and j.selected = true
+  where j.deleted_at is null and coalesce(j.archived,false)=false
     and j.repair_order_id in (select tekmetric_id from active_ro)
-  group by j.repair_order_id, j.tekmetric_id, j.name, j.authorized, j.labor_hours, j.technician_id
+  group by j.repair_order_id, j.tekmetric_id, j.name, j.authorized, j.labor_hours, j.selected, j.technician_id
 ),
 jobagg as (
   select repair_order_id,
-    count(*)                           as jobs_total,
-    count(*) filter (where authorized) as jobs_authorized,
-    round(coalesce(sum(labor_hours) filter (where authorized),0),2) as labor_hours,
-    bool_or(no_tech)  as auth_job_without_tech,
-    bool_or(no_labor) as auth_job_without_labor,
-    bool_or(no_price) as part_without_price,
-    bool_or(no_cost)  as part_without_cost,
-    bool_or(no_qty)   as part_without_qty,
+    count(*) filter (where sel)                as jobs_total,
+    count(*) filter (where sel and authorized) as jobs_authorized,
+    round(coalesce(sum(labor_hours) filter (where sel and authorized),0),2) as labor_hours,
+    -- banderas obligatorias: SOLO de jobs seleccionados (los apagados no contaminan)
+    bool_or(no_tech)  filter (where sel) as auth_job_without_tech,
+    bool_or(no_labor) filter (where sel) as auth_job_without_labor,
+    bool_or(no_price) filter (where sel) as part_without_price,
+    bool_or(no_cost)  filter (where sel) as part_without_cost,
+    bool_or(no_qty)   filter (where sel) as part_without_qty,
+    coalesce(bool_or((no_price or no_cost or no_qty)) filter (where not sel),false) as off_jobs_with_errors,
     coalesce(
-      jsonb_agg(jsonb_build_object('title', title, 'issues', to_jsonb(arr)) order by title)
+      jsonb_agg(jsonb_build_object('title', title, 'issues', to_jsonb(arr), 'off', not sel)
+                order by (not sel), title)
       filter (where coalesce(array_length(arr,1),0) > 0),
       '[]'::jsonb
     ) as problem_jobs
@@ -131,6 +134,7 @@ select
   coalesce(ja.part_without_cost,false)             as part_without_cost,
   coalesce(ja.part_without_qty,false)              as part_without_qty,
   (coalesce(ja.jobs_total,0) > 0 and coalesce(ja.jobs_authorized,0) = 0) as no_authorized_jobs,
+  coalesce(ja.off_jobs_with_errors,false)          as off_jobs_with_errors,
   coalesce(ja.problem_jobs,'[]'::jsonb)            as problem_jobs,
   nullif(trim(te.full_name),'')                    as technician,
   coalesce(r.estimated_completion_date, (ab.pickup_time)::timestamptz) as eta,
