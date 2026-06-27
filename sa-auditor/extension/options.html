@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <style>
@@ -20,21 +20,21 @@
 </head>
 <body>
 <div class="card">
-  <div class="head"><h1>🧾 SA Auditor — Ajustes</h1><p>La extensión detecta tu usuario de Tekmetric automáticamente. Aquí solo defines respaldos.</p></div>
+  <div class="head"><h1>🧾 SA Auditor — Settings</h1><p>The extension detects your Tekmetric user automatically. Here you only set fallbacks.</p></div>
   <div class="body">
-    <label>Identidad (respaldo si la auto-detección falla)</label>
-    <select id="identity"><option value="">Auto-detectar de Tekmetric</option><option value="__ADMIN__">Soy Admin (ver todo)</option></select>
-    <div class="hint">Déjalo en "Auto-detectar" salvo que el panel no te reconozca. También puedes cambiarlo desde el panel con "cambiar".</div>
+    <label>Identity (fallback if auto-detection fails)</label>
+    <select id="identity"><option value="">Auto-detect from Tekmetric</option><option value="__ADMIN__">I'm Admin (see everything)</option></select>
+    <div class="hint">Leave it on "Auto-detect" unless the panel doesn't recognize you. You can also change it from the panel with "change".</div>
 
-    <label>Nombres de admin (separados por coma)</label>
+    <label>Admin names (comma-separated)</label>
     <input id="admins" placeholder="Osman Perez" />
-    <div class="hint">Quien coincida con estos nombres ve el tablero completo. Los demás ven solo sus ROs.</div>
+    <div class="hint">Anyone matching these names sees the full dashboard. Everyone else sees only their own ROs.</div>
 
-    <label>Selector CSS del usuario (avanzado, opcional)</label>
-    <input id="selector" placeholder="(vacío = auto)" />
-    <div class="hint">Si la auto-detección no agarra tu nombre, aquí se puede afinar el selector. Osman puede ayudarte con esto.</div>
+    <label>User CSS selector (advanced, optional)</label>
+    <input id="selector" placeholder="(empty = auto)" />
+    <div class="hint">If auto-detection doesn't pick up your name, the selector can be fine-tuned here. Osman can help with this.</div>
 
-    <button id="save">Guardar</button>
+    <button id="save">Save</button>
     <div class="status" id="status"></div>
   </div>
 </div>
