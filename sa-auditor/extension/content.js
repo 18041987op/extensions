@@ -47,8 +47,9 @@
   function bucketDef(k){ return BUCKETS.find(x=>x.key===k); }
 
   let CFG = { adminNames: DEFAULT_ADMINS, identityOverride: "" };
-  let ROLL = [], RO = [], myName = "", myRole = "unknown";
-  const F = { bucket:"wip", q:"", issue:null };   // UI / filter state
+  let ROLL = [], RO = [], TECH = [], myName = "", myRole = "unknown";
+  let openSA = null, openTech = null;
+  const F = { view:"audit", bucket:"wip", q:"", issue:null };   // UI / filter state
 
   /* ---------- Panel ---------- */
   const w = document.createElement("div");
@@ -198,7 +199,7 @@
       CFG.identityOverride = c.identityOverride||"";
       CFG.userSelector = c.userSelector||"";
       try{
-        [ROLL, RO] = await Promise.all([ api("sa_rollup","select=*"), api("ro_audit","select=*") ]);
+        [ROLL, RO, TECH] = await Promise.all([ api("sa_rollup","select=*"), api("ro_audit","select=*"), api("tech_board","select=*") ]);
         RO.forEach(r=>{ r._issues=issuesOf(r); r._age=ageDays(r.ro_created_at); });
         resolveRole();
         renderIdentity(); render();
@@ -231,8 +232,18 @@
 
   function render(){
     if (myRole==="unknown"){ pickIdentity(); return; }
+    if (F.view==="techs"){ renderTechBoard(); return; }
     if (myRole==="admin") renderAdmin(); else renderSA();
   }
+
+  /* ---------- top nav (Audit / Tech Board) ---------- */
+  function topNav(){
+    return `<div class="sa-nav">
+      <button class="sa-nav-b ${F.view==='audit'?'on':''}" data-v="audit">📋 Audit</button>
+      <button class="sa-nav-b ${F.view==='techs'?'on':''}" data-v="techs">🔧 Tech Board</button>
+    </div>`;
+  }
+  function wireNav(){ body.querySelectorAll(".sa-nav-b").forEach(b=>b.addEventListener("click",()=>{ F.view=b.dataset.v; render(); })); }
 
   /* ---------- shared pieces ---------- */
   function matchSearchIssue(r){
@@ -281,6 +292,14 @@
       fill();
     }));
   }
+  function fmtEta(iso){ const d=new Date(iso); if(isNaN(d.getTime())) return null;
+    return d.toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}); }
+  function etaHtml(r){ if(!r.eta) return ""; const txt=fmtEta(r.eta); if(!txt) return "";
+    const over = new Date(r.eta).getTime() < Date.now() && r.status!=="COMPLETE";
+    return `<span class="sa-chip ${over?'high':'low'}">${over?'⏰ Overdue · ':'📅 '}${esc(txt)}</span>`; }
+  function statusTag(r){ const b=bucketDef(bucketOf(r)); return b?`<span class="sa-stag ${b.key}">${b.label}</span>`:""; }
+  function techTag(r){ return r.technician?`<span class="sa-ro-tech">🔧 ${esc(r.technician)}</span>`:""; }
+
   function roCard(r, hl){
     const chips = r._issues.length ? r._issues.map(i=>`<span class="sa-chip ${i.sev}">${i.label}</span>`).join("") : '<span class="sa-chip ok">✓ Complete</span>';
     const age = r._age==null?"—":(r._age===0?"today":r._age+" d");
@@ -290,9 +309,10 @@
         <div class="sa-ro-top">
           <a class="sa-ro-link" href="${roUrl(r)}" target="_blank" rel="noopener">#${esc(r.ro_number)}</a>
           <span class="sa-ro-veh">${esc(r.vehicle||"")}</span>
+          ${techTag(r)}
           <span class="sa-ro-age">${age}</span>
         </div>
-        <div class="sa-chips">${chips}</div>
+        <div class="sa-chips">${r.customer_waiting?'<span class="sa-chip high">🪑 Waiter</span>':''}${etaHtml(r)}${chips}</div>
       </div></div>`;
   }
   function kpis(items){
@@ -314,7 +334,7 @@
     const need = counts.wip + counts.done;
     const cur = currentRO();
     const curRow = cur ? RO.find(r=> String(r.ro_number)===String(cur)) : null;
-    let h = "";
+    let h = topNav();
     if (curRow){ h += `<div class="sa-sec"><div class="sa-sec-h">📍 Open now</div>${roCard(curRow,true)}</div>`; }
     h += `<div class="sa-headline ${need?'warn':'ok'}">
       <div class="sa-headline-main">${need? `⚠️ ${need} RO${need>1?'s':''} need attention` : "✅ All caught up on active work"}</div>
@@ -324,6 +344,7 @@
     h += `<div id="sa-list" class="sa-list"></div>`;
     h += foot("Read-only from Tekmetric. Fix in Tekmetric, then refresh ⟳.");
     body.innerHTML = h;
+    wireNav();
     fillSAList(me);
     wireTabs(()=>fillSAList(me));
     wireToolbar(()=>fillSAList(me));
@@ -337,16 +358,17 @@
   }
 
   /* ---------- Admin view ---------- */
-  let openSA = null;
   function renderAdmin(){
     const counts = bucketCounts(()=>true);
     const need = counts.wip + counts.done;
-    let h = kpis([[need,"Need attention","alert"],[ROLL.length,"SAs",""],[RO.length,"Active ROs",""]]);
+    let h = topNav();
+    h += kpis([[need,"Need attention","alert"],[ROLL.length,"SAs",""],[RO.length,"Active ROs",""]]);
     h += tabs(counts);
     h += toolbar();
     h += `<div class="sa-sec-h">By Service Advisor</div><div id="sa-list" class="sa-acc"></div>`;
     h += foot("WIP + Completed are mandatory · Estimates are low priority. Click a SA to expand.");
     body.innerHTML = h;
+    wireNav();
     animateKpis();
     fillAdminList();
     wireTabs(fillAdminList);
@@ -374,6 +396,60 @@
     }).join("");
     $("sa-list").querySelectorAll(".sa-acc-head").forEach(b=>b.addEventListener("click",()=>{
       const sa=b.parentElement.dataset.sa; openSA = (openSA===sa)?null:sa; fillAdminList();
+    }));
+  }
+
+  /* ---------- Tech Board view ---------- */
+  function roTechCard(r){
+    const wait = r.customer_waiting ? '<span class="sa-chip high">🪑 Waiter</span>'
+               : (r.waiting_on_customer ? '<span class="sa-chip med">⏳ Waiting on customer</span>' : "");
+    const lbl = r.ro_label ? `<span class="sa-chip low">${esc(r.ro_label)}</span>` : "";
+    return `<div class="sa-ro ${sevClass(r)}"><span class="sa-ro-bar"></span><div class="sa-ro-main">
+      <div class="sa-ro-top"><a class="sa-ro-link" href="${roUrl(r)}" target="_blank" rel="noopener">#${esc(r.ro_number)}</a>
+        <span class="sa-ro-veh">${esc(r.vehicle||"")}</span>${statusTag(r)}</div>
+      <div class="sa-chips">${etaHtml(r)}${wait}${lbl}</div></div></div>`;
+  }
+  function renderTechBoard(){
+    const waitingCust = RO.filter(r=> r.status==="REPAIR_IN_PROGRESS" && r.waiting_on_customer).length;
+    const waiters = RO.filter(r=> r.customer_waiting).length;
+    const openHrs = TECH.reduce((s,t)=>s+(+t.incomplete_hrs||0),0);
+    let h = topNav();
+    h += kpis([[waitingCust,"Waiting on customer","alert"],[TECH.length,"Techs working",""],[Math.round(openHrs),"Open hours",""]]);
+    if (waiters>0) h += `<div class="sa-note" style="margin:-4px 0 12px">🪑 ${waiters} waiter(s) detected from appointments.</div>`;
+    h += `<div class="sa-sec-h">Capacity — most available first</div><div id="sa-list" class="sa-acc"></div>`;
+    h += foot("Hours from authorized jobs (WIP + Completed). Delivery date & waiter come from Tekmetric appointments when synced.");
+    body.innerHTML = h;
+    wireNav();
+    animateKpis();
+    fillTechs();
+  }
+  function fillTechs(){
+    const el = $("sa-list");
+    if (!TECH.length){ el.innerHTML = `<div class="sa-empty"><div class="sa-empty-ic">🔧</div><div class="sa-empty-ttl">No technician data</div><div class="sa-empty-sub">No authorized jobs assigned to technicians in active ROs.</div></div>`; return; }
+    const list = [...TECH].sort((a,b)=>(+a.incomplete_hrs||0)-(+b.incomplete_hrs||0));
+    const maxInc = Math.max(1, ...list.map(t=>+t.incomplete_hrs||0));
+    el.innerHTML = list.map(t=>{
+      const inc=+t.incomplete_hrs||0, asg=+t.assigned_hrs||0, done=+t.complete_hrs||0;
+      const cap = inc<=4?"room":inc>=16?"load":"mod";
+      const capTxt = cap==="room"?"Has room":cap==="load"?"Loaded":"Moderate";
+      const open = openTech===t.technician;
+      const ros = RO.filter(r=> norm(r.technician)===norm(t.technician) && (r.status==="REPAIR_IN_PROGRESS"||r.status==="COMPLETE")).sort((a,b)=>worst(b)-worst(a));
+      const ratio = Math.round(100*inc/maxInc);
+      return `<div class="sa-acc-item tech ${open?'open':''}" data-t="${esc(t.technician)}">
+        <button class="sa-acc-head">
+          <span class="sa-acc-name">${esc(t.technician)}</span>
+          <span class="sa-cap ${cap}">${capTxt}</span>
+          <span class="sa-acc-bar load"><i style="width:${ratio}%"></i></span>
+          <span class="sa-th"><b>${inc.toFixed(1)}</b>h left</span>
+          <span class="sa-acc-caret">▾</span>
+        </button>
+        <div class="sa-acc-panel">
+          <div class="sa-techmeta">${t.ros} RO${t.ros!=1?'s':''} · ${asg.toFixed(1)}h assigned · ${done.toFixed(1)}h done · <b>${inc.toFixed(1)}h left</b></div>
+          ${ros.map(roTechCard).join("")||emptyMini()}
+        </div></div>`;
+    }).join("");
+    el.querySelectorAll(".sa-acc-head").forEach(b=>b.addEventListener("click",()=>{
+      const t=b.parentElement.dataset.t; openTech=(openTech===t)?null:t; fillTechs();
     }));
   }
 

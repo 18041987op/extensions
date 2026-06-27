@@ -69,6 +69,26 @@
 .sa-kpi .n{ font-size:23px; font-weight:900; line-height:1.1; } .sa-kpi.alert .n{ color:var(--high); }
 .sa-kpi .l{ font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-top:2px; }
 
+/* top nav (Audit / Tech Board) */
+.sa-nav{ display:flex; gap:6px; margin-bottom:12px; background:#e9eef5; padding:4px; border-radius:11px; }
+.sa-nav-b{ flex:1; background:transparent; border:none; border-radius:8px; padding:7px 6px; cursor:pointer; font-size:12.5px; font-weight:700; color:var(--muted); transition:all .14s; }
+.sa-nav-b:hover{ color:var(--ink); }
+.sa-nav-b.on{ background:#fff; color:var(--navy); box-shadow:0 1px 3px rgba(8,20,45,.12); }
+
+/* tech capacity */
+.sa-acc-item.tech .sa-acc-bar.load i{ background:linear-gradient(90deg,#22c55e,var(--med) 60%,var(--high)); }
+.sa-cap{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; padding:2px 8px; border-radius:20px; }
+.sa-cap.room{ background:var(--ok-bg); color:var(--ok); }
+.sa-cap.mod{ background:var(--med-bg); color:var(--med); }
+.sa-cap.load{ background:var(--high-bg); color:var(--high); }
+.sa-th{ font-size:12px; color:var(--muted); white-space:nowrap; } .sa-th b{ font-size:15px; color:var(--ink); }
+.sa-techmeta{ font-size:11.5px; color:var(--muted); padding:2px 2px 6px; }
+
+/* status tag + tech tag on cards */
+.sa-stag{ font-size:10px; font-weight:800; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:.3px; }
+.sa-stag.wip{ background:#dbeafe; color:#1d4ed8; } .sa-stag.done{ background:var(--ok-bg); color:var(--ok); } .sa-stag.est{ background:#e2e8f0; color:var(--muted); }
+.sa-ro-tech{ font-size:11px; color:var(--low); background:var(--low-bg); padding:1px 7px; border-radius:20px; white-space:nowrap; }
+
 /* headline (SA view) */
 .sa-headline{ border-radius:12px; padding:11px 13px; margin-bottom:12px; border:1px solid var(--line); background:var(--card); }
 .sa-headline.warn{ background:linear-gradient(135deg,#fff7ed,#fee2e2); border-color:#fecaca; }
