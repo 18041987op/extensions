@@ -14,6 +14,8 @@
 --   * El RO NO trae appointmentId fiable; el waiter (appointmentOption STAY) y
 --     la hora de entrega (pickupTime) se cruzan best-effort por vehículo+fecha
 --     desde tekmetric_appointments (cobertura parcial hasta mejorar el sync).
+--   * Los CTE (jobs, line_items, customers, appointments) se filtran a los ROs
+--     activos ANTES de agregar/decodificar jsonb, para evitar timeouts (57014).
 --
 -- Deshacer: drop view public.tech_board; drop view public.sa_rollup; drop view public.ro_audit;
 -- ============================================================
@@ -37,6 +39,7 @@ job_agg as (
     bool_or(j.deleted_at is null and j.authorized and coalesce(j.labor_hours,0)=0) as auth_job_without_labor,
     bool_or(j.deleted_at is null and j.authorized and coalesce(j.parts_sub_total,0)=0) as auth_job_without_parts
   from public.tekmetric_jobs j
+  where j.repair_order_id in (select tekmetric_id from active_ro)
   group by j.repair_order_id
 ),
 li_agg as (
@@ -45,12 +48,14 @@ li_agg as (
     bool_or(li.deleted_at is null and li.line_type ilike '%part%' and (li.unit_cost is null or li.unit_cost=0)) as part_without_cost,
     bool_or(li.deleted_at is null and li.line_type ilike '%part%' and (li.quantity is null or li.quantity=0)) as part_without_qty
   from public.tekmetric_job_line_items li
+  where li.repair_order_id in (select tekmetric_id from active_ro)
   group by li.repair_order_id
 ),
 cust as (
   select c.tekmetric_id,
     case when jsonb_typeof(c.address)='string' then (c.address #>> '{}')::jsonb else c.address end as addr
   from public.tekmetric_customers c
+  where c.tekmetric_id in (select customer_id from active_ro)
 ),
 meta as (
   select x.tekmetric_id,
@@ -67,6 +72,7 @@ appt_raw as (
     case when jsonb_typeof(a.raw_data)='string' then (a.raw_data #>> '{}')::jsonb else a.raw_data end as j
   from public.tekmetric_appointments a
   where a.deleted_at is null
+    and a.vehicle_id in (select vehicle_id from active_ro)
 ),
 appt_best as (
   select distinct on (ro.tekmetric_id) ro.tekmetric_id,
