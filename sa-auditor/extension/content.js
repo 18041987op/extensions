@@ -53,6 +53,7 @@
   let ROLL = [], RO = [], TECH = [], myName = "", myRole = "unknown";
   let openSA = null, openTech = null;
   const openROs = new Set();   // ROs the user expanded (collapsed by default)
+  let lastCurKey = "";         // tracks which RO the current-RO banner is showing
   const F = { view:"audit", bucket:"wip", q:"", issue:null };   // UI / filter state
 
   /* ---------- Panel ---------- */
@@ -182,9 +183,24 @@
     for (const s of sels){ const el=document.querySelector(s); const t=el&&(el.getAttribute('aria-label')||el.textContent||"").trim(); if(t && t.length>1 && t.length<40) return t; }
     return "";
   }
+  // What RO is the user looking at? Only fires on a SINGLE-RO page (not list/board):
+  //  - URL has an RO id segment  /repair-orders/<id>           → match ro_id
+  //  - the RO detail header "RO #<number>:" (note the colon)   → match ro_number
+  // Board/list cards like "RO#70442" (no colon) won't trigger it.
+  function detectRoRef(){
+    let id=null, num=null;
+    const u = location.href.match(/\/repair-orders\/(\d{3,})(?:[/?#]|$)/i);
+    if (u) id = u[1];
+    const t = (document.body.innerText||"").slice(0,3000).match(/\bRO\s*#\s*(\d{3,})\s*:/i);
+    if (t) num = t[1];
+    if (!id && !num) return null;
+    return { id, num };
+  }
+  // Returns the matching ro_audit row for the RO currently open, or null.
   function currentRO(){
-    const m1 = location.href.match(/repair-orders?\/(\d{3,})/i); if(m1) return m1[1];
-    const txt = (document.body.innerText||"").match(/RO\s*#?\s*(\d{3,})/i); if(txt) return txt[1];
+    const ref = detectRoRef(); if(!ref) return null;
+    if (ref.num){ const r = RO.find(x=>String(x.ro_number)===ref.num); if(r) return r; }
+    if (ref.id){  const r = RO.find(x=>String(x.ro_id)===ref.id);      if(r) return r; }
     return null;
   }
 
@@ -370,15 +386,35 @@
   function emptyMini(){ return `<div class="sa-empty mini">Nothing here 🎉</div>`; }
   function foot(t){ return `<div class="sa-foot">${esc(t)}</div>`; }
 
+  /* ---------- "current RO" banner (shows on top whenever you open an RO) ---------- */
+  function roIssueCount(r){
+    const roc = r._issues.filter(i=>RO_LEVEL_KEYS.includes(i.key)).length;
+    const aj = (Array.isArray(r.problem_jobs)?r.problem_jobs:[]).filter(j=>!j.off).length;
+    return roc + aj;
+  }
+  function curKey(){ const c=currentRO(); if(c) return "ro:"+c.ro_id; const ref=detectRoRef(); return ref?("ref:"+(ref.num||ref.id)):""; }
+  function curRoBannerHtml(){
+    const ref = detectRoRef();
+    if (!ref) return "";                      // not viewing an RO
+    const cur = currentRO();
+    if (!cur){
+      const label = ref.num ? ("#"+ref.num) : ("id "+ref.id);
+      return `<div class="sa-curbanner none">📍 <b>Current RO ${esc(label)}</b> — not in the active list (only Estimate / WIP / Completed are audited).</div>`;
+    }
+    const n = roIssueCount(cur);
+    const off = (Array.isArray(cur.problem_jobs)?cur.problem_jobs:[]).filter(j=>j.off).length;
+    const msg = n>0 ? `⚠ ${n} thing${n>1?'s':''} to fix on this RO` : "✓ This RO looks complete";
+    const offmsg = (n===0 && off>0) ? " · 🔌 review turned-off option(s)" : "";
+    return `<div class="sa-curbanner ${n>0?'warn':'ok'}">📍 <b>You're on RO #${esc(cur.ro_number)}</b> — ${msg}${offmsg}</div>${roCard(cur,true)}`;
+  }
+
   /* ---------- SA view ---------- */
   function renderSA(){
     const me = r=> norm(r.service_advisor)===norm(myName);
     const counts = bucketCounts(me);
     const need = counts.wip + counts.done;
-    const cur = currentRO();
-    const curRow = cur ? RO.find(r=> String(r.ro_number)===String(cur)) : null;
     let h = topNav();
-    if (curRow){ h += `<div class="sa-sec"><div class="sa-sec-h">📍 Open now</div>${roCard(curRow,true)}</div>`; }
+    h += `<div id="sa-curro">${curRoBannerHtml()}</div>`;
     h += `<div class="sa-headline ${need?'warn':'ok'}">
       <div class="sa-headline-main">${need? `⚠️ ${need} RO${need>1?'s':''} need attention` : "✅ All caught up on active work"}</div>
       <div class="sa-headline-sub">Work In Progress + Completed must have everything filled</div></div>`;
@@ -388,6 +424,7 @@
     h += foot("Read-only from Tekmetric. Fix in Tekmetric, then refresh ⟳.");
     body.innerHTML = h;
     wireNav();
+    lastCurKey = curKey();
     fillSAList(me);
     wireTabs(()=>fillSAList(me));
     wireToolbar(()=>fillSAList(me));
@@ -396,7 +433,7 @@
     const cur = currentRO();
     const list = listFor(me);
     $("sa-list").innerHTML = list.length
-      ? list.map(r=>roCard(r, cur && String(r.ro_number)===String(cur))).join("")
+      ? list.map(r=>roCard(r, cur && String(r.ro_number)===String(cur.ro_number))).join("")
       : emptyState();
   }
 
@@ -405,6 +442,7 @@
     const counts = bucketCounts(()=>true);
     const need = counts.wip + counts.done;
     let h = topNav();
+    h += `<div id="sa-curro">${curRoBannerHtml()}</div>`;
     h += kpis([[need,"Need attention","alert"],[ROLL.length,"SAs",""],[RO.length,"Active ROs",""]]);
     h += tabs(counts);
     h += toolbar();
@@ -412,6 +450,7 @@
     h += foot("WIP + Completed are mandatory · Estimates are low priority. Click a SA to expand.");
     body.innerHTML = h;
     wireNav();
+    lastCurKey = curKey();
     animateKpis();
     fillAdminList();
     wireTabs(fillAdminList);
@@ -457,12 +496,14 @@
     const waiters = RO.filter(r=> r.customer_waiting).length;
     const openHrs = TECH.reduce((s,t)=>s+(+t.incomplete_hrs||0),0);
     let h = topNav();
+    h += `<div id="sa-curro">${curRoBannerHtml()}</div>`;
     h += kpis([[waitingCust,"Waiting on customer","alert"],[TECH.length,"Techs working",""],[Math.round(openHrs),"Open hours",""]]);
     if (waiters>0) h += `<div class="sa-note" style="margin:-4px 0 12px">🪑 ${waiters} waiter(s) detected from appointments.</div>`;
     h += `<div class="sa-sec-h">Capacity — most available first</div><div id="sa-list" class="sa-acc"></div>`;
     h += foot("Hours from authorized jobs (WIP + Completed). Delivery date & waiter come from Tekmetric appointments when synced.");
     body.innerHTML = h;
     wireNav();
+    lastCurKey = curKey();
     animateKpis();
     fillTechs();
   }
@@ -496,9 +537,20 @@
     }));
   }
 
+  // Keep the "current RO" banner in sync as you navigate between ROs (SPA, no reload).
+  function refreshCurRo(){
+    if (!loadedOnce) return;
+    const el = $("sa-curro"); if(!el) return;
+    const key = curKey();
+    if (key === lastCurKey) return;
+    lastCurKey = key;
+    el.innerHTML = curRoBannerHtml();
+  }
+
   /* ---------- startup: watch session (Tekmetric is a SPA) ---------- */
   const mo = new MutationObserver(()=>{ clearTimeout(mo._t); mo._t=setTimeout(gate,300); });
   mo.observe(document.documentElement, { subtree:true, childList:true });
   setInterval(gate, 2500);
+  setInterval(refreshCurRo, 1500);
   gate();
 })();
