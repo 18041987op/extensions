@@ -18,12 +18,23 @@ Herramienta interna para **Service Advisors** y **manager** que audita los Repai
 ```
 sa-auditor/
 ├── README.md
+├── PUBLICAR.md                 ← cómo publicar en la Web Store y lanzar updates
 ├── sql/
 │   └── 01_audit_views.sql      ← vistas ro_audit y sa_rollup (ya aplicadas en Supabase)
 ├── dashboard/
 │   └── index.html              ← tablero del manager (abrir en el navegador)
+├── extension/                  ← la extensión de Chrome (lo que se publica)
+│   ├── manifest.json
+│   ├── icons/                  ← íconos 16/48/128 (los pide la Web Store)
+│   └── ...
+├── scripts/
+│   ├── build.sh                ← empaqueta extension/ en dist/*.zip
+│   └── bump-version.sh         ← sube la versión del manifest
 └── .gitignore
 ```
+
+> CI: `.github/workflows/publish-sa-auditor.yml` empaqueta y publica en la Web Store
+> al hacer push de un tag `sa-auditor-v*`.
 
 ## Tablero del manager
 
@@ -63,9 +74,20 @@ Una sola extensión de Chrome que se **adapta al rol** de quien la instala, leye
 **Rol/identidad:** la extensión **auto-detecta** el usuario logueado en Tekmetric. Si no lo reconoce, cada quien lo elige una vez con el botón **"cambiar"** del panel (o en Ajustes). Los nombres de admin se configuran en Ajustes (por defecto: Osman Perez).
 
 ### Instalar (cada usuario, en su propio Chrome)
-1. `chrome://extensions` → **Modo de desarrollador** → **Cargar extensión sin empaquetar** → carpeta `extension/`.
-2. Abrir `shop.tekmetric.com`. El panel **SA Auditor** aparece arriba a la derecha.
-3. Si no te reconoce, pulsa **"cambiar"** y elige tu nombre (o Admin).
+
+**Recomendado — Chrome Web Store (privada/no listada):** instalación con un clic y
+auto-actualización. Sin carpetas locales ni modo desarrollador.
+1. Abrir el **link de la Web Store** de la extensión.
+2. **Añadir a Chrome**.
+3. Abrir `shop.tekmetric.com`. El panel **SA Auditor** aparece arriba a la derecha.
+4. Si no te reconoce, pulsa **"cambiar"** y elige tu nombre (o Admin).
+
+> Cómo publicarla la primera vez y cómo lanzar actualizaciones **sin volver a subir el
+> `.zip` a mano**: ver **[`PUBLICAR.md`](PUBLICAR.md)**.
+
+**Alternativa — sin empaquetar (solo para desarrollo/pruebas):**
+`chrome://extensions` → **Modo de desarrollador** → **Cargar extensión sin empaquetar**
+→ carpeta `extension/`.
 
 ### Notas
 - **Auto-detección:** depende de cómo Tekmetric muestre el nombre del usuario. Puede necesitar afinar el **selector CSS** (Ajustes → avanzado). Osman: cuando lo probemos en vivo, capturamos el selector exacto.

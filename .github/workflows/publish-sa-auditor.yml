@@ -1,0 +1,71 @@
+name: Publicar SA Auditor (Chrome Web Store)
+
+# Empaqueta la extensión SA Auditor y la sube/publica en la Chrome Web Store.
+#
+# Cómo dispararlo:
+#   - Automático: al hacer push de un tag que empiece con  sa-auditor-v   (ej. sa-auditor-v0.1.1)
+#       git tag sa-auditor-v0.1.1 && git push --follow-tags
+#   - Manual: pestaña "Actions" en GitHub -> este workflow -> "Run workflow".
+#
+# Necesita 4 secretos del repo (Settings -> Secrets and variables -> Actions).
+# Cómo obtenerlos está explicado paso a paso en sa-auditor/PUBLICAR.md:
+#   SA_AUDITOR_EXTENSION_ID   id de la extensión (lo da la Web Store tras la 1ª subida)
+#   CWS_CLIENT_ID             OAuth client id  (Google Cloud)
+#   CWS_CLIENT_SECRET         OAuth client secret
+#   CWS_REFRESH_TOKEN         refresh token de la API de la Web Store
+
+on:
+  push:
+    tags:
+      - 'sa-auditor-v*'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publicar de verdad (true) o solo empaquetar y validar (false)'
+        type: boolean
+        default: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sa-auditor
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Empaquetar extensión (.zip)
+        run: bash scripts/build.sh
+
+      - name: Guardar el .zip como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: sa-auditor-extension
+          path: sa-auditor/dist/sa-auditor-extension.zip
+          if-no-files-found: error
+
+      - name: Verificar que existan los secretos
+        id: check
+        run: |
+          if [ -n "${{ secrets.SA_AUDITOR_EXTENSION_ID }}" ] \
+            && [ -n "${{ secrets.CWS_CLIENT_ID }}" ] \
+            && [ -n "${{ secrets.CWS_CLIENT_SECRET }}" ] \
+            && [ -n "${{ secrets.CWS_REFRESH_TOKEN }}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Faltan secretos de la Chrome Web Store. Se empaquetó el zip pero NO se publicó. Ver sa-auditor/PUBLICAR.md."
+          fi
+
+      - name: Subir y publicar en la Chrome Web Store
+        if: >-
+          steps.check.outputs.ready == 'true' &&
+          (github.event_name == 'push' || inputs.publish == true)
+        uses: mnao305/chrome-extension-upload@v5
+        with:
+          file-path: sa-auditor/dist/sa-auditor-extension.zip
+          extension-id: ${{ secrets.SA_AUDITOR_EXTENSION_ID }}
+          client-id: ${{ secrets.CWS_CLIENT_ID }}
+          client-secret: ${{ secrets.CWS_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CWS_REFRESH_TOKEN }}
