@@ -1,11 +1,11 @@
 /* ============================================================
-   SA Auditor — content.js (corre en Tekmetric)
-   - Solo se muestra si hay sesión iniciada en Tekmetric.
-   - Detecta el usuario logueado, resuelve rol (admin vs SA).
-   - Lee las vistas de Supabase (anon) y muestra:
-       · Admin: KPIs + acordeón por SA (con búsqueda y filtros).
-       · SA: solo sus ROs por completar + el RO actual resaltado.
-   - Override manual de identidad como respaldo.
+   SA Auditor — content.js (runs on Tekmetric)
+   - Only shows when there is an active Tekmetric session.
+   - Detects the logged-in user, resolves role (admin vs SA).
+   - Reads the Supabase views (anon) and shows ROs grouped by
+     status: Work In Progress / Completed (mandatory: everything
+     must be filled) and Estimates (low priority).
+   - Manual identity override as a fallback.
    ============================================================ */
 (() => {
   if (document.getElementById("sa-widget")) return;
@@ -18,21 +18,37 @@
   const TEKMETRIC_RO_URL = "https://shop.tekmetric.com/admin/shop/6769/repair-orders?search={ro_number}";
   function roUrl(r){ return TEKMETRIC_RO_URL.replace("{ro_number}", encodeURIComponent(r.ro_number)).replace("{ro_id}", encodeURIComponent(r.ro_id)); }
 
+  // All audit checks (English labels).
   const ISSUES = [
-    { key:"missing_vin",            label:"Sin VIN",                sev:"high" },
-    { key:"auth_job_without_tech",  label:"Autorizado sin técnico", sev:"high" },
-    { key:"auth_job_without_labor", label:"Autorizado sin labor",   sev:"high" },
-    { key:"part_without_price",     label:"Parte sin venta",        sev:"high" },
-    { key:"part_without_cost",      label:"Parte sin costo",        sev:"med"  },
-    { key:"part_without_qty",       label:"Parte sin cantidad",     sev:"med"  },
-    { key:"missing_miles",          label:"Sin millas",             sev:"med"  },
-    { key:"no_authorized_jobs",     label:"Sin jobs autorizados",   sev:"low"  },
+    { key:"missing_vin",            label:"No VIN",                sev:"high" },
+    { key:"missing_miles",          label:"No miles in",           sev:"high" },
+    { key:"missing_address",        label:"No customer address",   sev:"high" },
+    { key:"auth_job_without_tech",  label:"Authorized · no tech",  sev:"high" },
+    { key:"auth_job_without_labor", label:"Authorized · no labor", sev:"high" },
+    { key:"part_without_price",     label:"Part · no sale price",  sev:"high" },
+    { key:"part_without_cost",      label:"Part · no cost",        sev:"med"  },
+    { key:"part_without_qty",       label:"Part · no qty",         sev:"med"  },
+    { key:"no_authorized_jobs",     label:"No authorized jobs",    sev:"low"  },
   ];
   const SEV = { high:3, med:2, low:1 };
 
+  // Mandatory checks for Work In Progress + Completed (everything must be filled).
+  // "no_authorized_jobs" is an estimate-only soft signal, so it's not mandatory here.
+  const MANDATORY_KEYS = ["missing_vin","missing_miles","missing_address","auth_job_without_tech",
+    "auth_job_without_labor","part_without_price","part_without_cost","part_without_qty"];
+
+  // Status buckets (the 3 Tekmetric board columns).
+  const BUCKETS = [
+    { key:"wip",  label:"Work In Progress", status:"REPAIR_IN_PROGRESS", mandatory:true,  of:"wip_ros"  },
+    { key:"done", label:"Completed",        status:"COMPLETE",           mandatory:true,  of:"done_ros" },
+    { key:"est",  label:"Estimates",        status:"ESTIMATE",           mandatory:false, of:"est_ros"  },
+  ];
+  function bucketOf(r){ const b=BUCKETS.find(x=>x.status===r.status); return b?b.key:null; }
+  function bucketDef(k){ return BUCKETS.find(x=>x.key===k); }
+
   let CFG = { adminNames: DEFAULT_ADMINS, identityOverride: "" };
   let ROLL = [], RO = [], myName = "", myRole = "unknown";
-  const F = { q:"", issue:null, openSA:null };   // estado de filtros/UI
+  const F = { bucket:"wip", q:"", issue:null };   // UI / filter state
 
   /* ---------- Panel ---------- */
   const w = document.createElement("div");
@@ -43,21 +59,21 @@
       <span class="sa-ttl">SA Auditor</span>
       <span class="sa-dot" id="sa-dot"></span>
       <span class="sa-sp"></span>
-      <button class="sa-icon" id="sa-refresh" title="Refrescar">⟳</button>
-      <button class="sa-icon" id="sa-collapse" title="Plegar">▾</button>
-      <button class="sa-icon" id="sa-close" title="Cerrar">✕</button>
+      <button class="sa-icon" id="sa-refresh" title="Refresh">⟳</button>
+      <button class="sa-icon" id="sa-collapse" title="Collapse">▾</button>
+      <button class="sa-icon" id="sa-close" title="Close">✕</button>
     </div>
     <div class="sa-idbar" id="sa-idbar"></div>
-    <div class="sa-body" id="sa-body"><div class="sa-msg"><span class="sa-spin"></span> Cargando…</div></div>
+    <div class="sa-body" id="sa-body"><div class="sa-msg"><span class="sa-spin"></span> Loading…</div></div>
     <div class="sa-resize" id="sa-resize"></div>`;
   document.body.appendChild(w);
-  w.style.display = "none";                       // oculto hasta confirmar sesión
+  w.style.display = "none";                       // hidden until a session is confirmed
   const $ = (id) => document.getElementById(id);
   const body = $("sa-body");
 
-  /* ---------- posición persistente ---------- */
+  /* ---------- persistent position ---------- */
   let ui = (()=>{ try{return JSON.parse(localStorage.getItem(UIKEY))||{}}catch(e){return{}} })();
-  let width = ui.width||372, height = ui.height||560;
+  let width = ui.width||384, height = ui.height||580;
   w.style.width = width+"px"; w.style.height = height+"px";
   let left = (typeof ui.left==="number")?ui.left:Math.max(8, window.innerWidth-width-16);
   let top  = (typeof ui.top==="number")?ui.top:80;
@@ -74,16 +90,16 @@
     document.addEventListener("mousemove",mm); document.addEventListener("mouseup",mu); });
   $("sa-resize").addEventListener("mousedown",(e)=>{ e.preventDefault(); e.stopPropagation();
     const sx=e.clientX,sy=e.clientY,sw=width,sh=height,ov=overlay("nwse-resize");
-    function mm(ev){ width=Math.max(320,Math.min(window.innerWidth-left-4,sw+(ev.clientX-sx))); height=Math.max(220,Math.min(window.innerHeight-top-4,sh+(ev.clientY-sy))); w.style.width=width+"px"; w.style.height=height+"px"; }
+    function mm(ev){ width=Math.max(330,Math.min(window.innerWidth-left-4,sw+(ev.clientX-sx))); height=Math.max(240,Math.min(window.innerHeight-top-4,sh+(ev.clientY-sy))); w.style.width=width+"px"; w.style.height=height+"px"; }
     function mu(){ document.removeEventListener("mousemove",mm); document.removeEventListener("mouseup",mu); ov.remove(); persist(); }
     document.addEventListener("mousemove",mm); document.addEventListener("mouseup",mu); });
   $("sa-collapse").addEventListener("click",()=>{ w.classList.toggle("sa-collapsed"); $("sa-collapse").textContent=w.classList.contains("sa-collapsed")?"▴":"▾"; persist(); });
 
-  /* ---------- mostrar/ocultar según sesión ---------- */
+  /* ---------- show/hide depending on session ---------- */
   let launcher=null, userClosed=false, loadedOnce=false;
   function ensureLauncher(){
     if(!launcher){
-      launcher=document.createElement("button"); launcher.id="sa-launcher"; launcher.textContent="🧾"; launcher.title="Abrir SA Auditor";
+      launcher=document.createElement("button"); launcher.id="sa-launcher"; launcher.textContent="🧾"; launcher.title="Open SA Auditor";
       launcher.addEventListener("click",()=>{ userClosed=false; gate(); });
       document.body.appendChild(launcher);
     }
@@ -91,15 +107,14 @@
   $("sa-close").addEventListener("click",()=>{ userClosed=true; ensureLauncher(); gate(); });
   $("sa-refresh").addEventListener("click",()=>{ const b=$("sa-refresh"); b.classList.add("spin"); loadedOnce=true; load(()=>b.classList.remove("spin")); });
 
-  // ¿La página actual es de login / sin sesión?
+  // Is the current page a login / no-session page?
   function isLoggedOut(){
     const p = location.pathname.toLowerCase();
     if (/(^|\/)(login|sign-?in|sso|forgot|reset|logout|auth)(\/|$)/.test(p)) return true;
     const pw = document.querySelector('input[type="password"]');
-    if (pw && pw.offsetParent !== null) return true;   // campo de contraseña visible
+    if (pw && pw.offsetParent !== null) return true;   // visible password field
     return false;
   }
-
   function gate(){
     if (isLoggedOut()){
       w.style.display="none";
@@ -121,7 +136,6 @@
   function esc(s){ return (s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
   function issuesOf(r){ return ISSUES.filter(i=>r[i.key]===true); }
   function worst(r){ return issuesOf(r).reduce((m,i)=>Math.max(m,SEV[i.sev]),0)*100 + issuesOf(r).length; }
-  function sevClass(r){ const s=r._issues.reduce((m,i)=>Math.max(m,SEV[i.sev]),0); return s===3?"high":s===2?"med":s===1?"low":"ok"; }
   function ageDays(iso){ if(!iso)return null; return Math.floor((Date.now()-new Date(iso).getTime())/86400000); }
   function norm(s){ return (s||"").toString().trim().toLowerCase(); }
   function firstTok(s){ return norm(s).split(/\s+/)[0]||""; }
@@ -129,13 +143,25 @@
     function fr(t){ const k=Math.min(1,(t-t0)/dur); el.textContent=Math.round(to*(1-Math.pow(1-k,3))); if(k<1)requestAnimationFrame(fr); }
     requestAnimationFrame(fr); }
 
+  // Does this RO still need work given its bucket's rules?
+  function incomplete(r){
+    const b = bucketDef(bucketOf(r)); if(!b) return false;
+    return b.mandatory ? MANDATORY_KEYS.some(k=>r[k]===true) : r._issues.length>0;
+  }
+  function sevClass(r){
+    const b = bucketDef(bucketOf(r));
+    if (b && !b.mandatory) return "est"; // estimates are de-emphasized
+    const s = r._issues.filter(i=>MANDATORY_KEYS.includes(i.key)).reduce((m,i)=>Math.max(m,SEV[i.sev]),0);
+    return s===3?"high":s===2?"med":s===1?"low":"ok";
+  }
+
   async function api(view, qs){
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${view}?${qs}`, { headers:{ apikey:SUPABASE_KEY, Authorization:"Bearer "+SUPABASE_KEY }});
     if(!r.ok) throw new Error("HTTP "+r.status+" — "+(await r.text()).slice(0,160));
     return r.json();
   }
 
-  /* ---------- detectar usuario / RO actual ---------- */
+  /* ---------- detect user / current RO ---------- */
   function detectUser(){
     if (CFG.userSelector){ const el=document.querySelector(CFG.userSelector); if(el && el.textContent.trim()) return el.textContent.trim(); }
     const sels = ["[data-testid*='user']","[class*='userName']","[class*='UserName']","[class*='userMenu']","[class*='UserMenu']","[aria-label*='account']","[class*='avatar']"];
@@ -148,7 +174,7 @@
     return null;
   }
 
-  /* ---------- resolver rol ---------- */
+  /* ---------- resolve role ---------- */
   function resolveRole(){
     const adminSet = new Set(CFG.adminNames.map(norm));
     const adminTok = new Set(CFG.adminNames.map(firstTok));
@@ -162,10 +188,10 @@
     myRole = "unknown";
   }
 
-  /* ---------- carga ---------- */
+  /* ---------- load ---------- */
   async function load(done){
     $("sa-dot").className="sa-dot";
-    body.innerHTML = '<div class="sa-msg"><span class="sa-spin"></span> Cargando…</div>';
+    body.innerHTML = '<div class="sa-msg"><span class="sa-spin"></span> Loading…</div>';
     chrome.storage.local.get(["saConfig"], async (d)=>{
       const c = d.saConfig||{};
       CFG.adminNames = (c.adminNames&&c.adminNames.length)?c.adminNames:DEFAULT_ADMINS;
@@ -179,23 +205,23 @@
         $("sa-dot").className="sa-dot ok";
       }catch(e){
         $("sa-dot").className="sa-dot err";
-        body.innerHTML='<div class="sa-msg">No se pudo cargar.<br><b>'+esc(e.message)+'</b><br><br>Si dice "permission denied", avísale a Osman.</div>';
+        body.innerHTML='<div class="sa-msg">Could not load.<br><b>'+esc(e.message)+'</b><br><br>If it says "permission denied", let Osman know.</div>';
       }finally{ if(done) done(); }
     });
   }
 
   function renderIdentity(){
-    const roleLabel = myRole==="admin"?"Admin":myRole==="sa"?"Service Advisor":"sin identificar";
-    $("sa-idbar").innerHTML = `<span class="sa-role ${myRole}">${roleLabel}</span> <b>${esc(myName||"—")}</b> <a href="#" id="sa-change">cambiar</a>`;
+    const roleLabel = myRole==="admin"?"Admin":myRole==="sa"?"Service Advisor":"Not identified";
+    $("sa-idbar").innerHTML = `<span class="sa-role ${myRole}">${roleLabel}</span> <b>${esc(myName||"—")}</b> <a href="#" id="sa-change">change</a>`;
     $("sa-change").addEventListener("click",(e)=>{ e.preventDefault(); pickIdentity(); });
   }
 
   function pickIdentity(){
     const names = [...new Set(ROLL.map(s=>s.service_advisor))].sort();
-    body.innerHTML = `<div class="sa-sec"><div class="sa-sec-h">¿Quién eres?</div>
-      <button class="sa-btn sa-full" data-id="__ADMIN__">👑 Admin (ver todo)</button>
+    body.innerHTML = `<div class="sa-sec"><div class="sa-sec-h">Who are you?</div>
+      <button class="sa-btn sa-full" data-id="__ADMIN__">👑 Admin (see everything)</button>
       <div class="sa-pick">${names.map(n=>`<button class="sa-btn sa-sec-btn sa-full" data-id="${esc(n)}">${esc(n)}</button>`).join("")}</div>
-      <div class="sa-note">Se recuerda en este Chrome. Puedes cambiarlo después con "cambiar".</div></div>`;
+      <div class="sa-note">Remembered in this Chrome. You can change it later with "change".</div></div>`;
     body.querySelectorAll("button[data-id]").forEach(b=>b.addEventListener("click",()=>{
       const id=b.dataset.id;
       chrome.storage.local.get(["saConfig"],(d)=>{ const c=d.saConfig||{}; c.identityOverride=id; chrome.storage.local.set({saConfig:c},()=>{
@@ -208,18 +234,42 @@
     if (myRole==="admin") renderAdmin(); else renderSA();
   }
 
-  /* ---------- piezas reutilizables ---------- */
-  function hit(r){
-    if (!r._issues.length) return false;
+  /* ---------- shared pieces ---------- */
+  function matchSearchIssue(r){
     if (F.issue && r[F.issue]!==true) return false;
     if (F.q){ const q=norm(F.q); if(!(String(r.ro_number).includes(q) || norm(r.vehicle).includes(q))) return false; }
     return true;
   }
+  // Incomplete ROs for an owner in the active bucket (after search + issue filter).
+  function listFor(pred){
+    return RO.filter(r=> pred(r) && bucketOf(r)===F.bucket && incomplete(r) && matchSearchIssue(r))
+             .sort((a,b)=>worst(b)-worst(a));
+  }
+  // Count of incomplete ROs per bucket for an owner (ignores search/issue filter).
+  function bucketCounts(pred){
+    const c={wip:0,done:0,est:0};
+    RO.forEach(r=>{ if(!pred(r))return; const bk=bucketOf(r); if(bk && incomplete(r)) c[bk]++; });
+    return c;
+  }
+
+  function tabs(counts){
+    return `<div class="sa-tabs">${BUCKETS.map(b=>`
+      <button class="sa-tab ${F.bucket===b.key?'on':''} ${b.mandatory?'':'soft'}" data-b="${b.key}" title="${b.mandatory?'Mandatory — must be fully filled':'Low priority'}">
+        <span>${b.label}</span><span class="sa-tab-n ${counts[b.key]?'':'zero'}">${counts[b.key]}</span>
+      </button>`).join("")}</div>`;
+  }
+  function wireTabs(refresh){
+    body.querySelectorAll(".sa-tab").forEach(b=>b.addEventListener("click",()=>{
+      F.bucket=b.dataset.b;
+      body.querySelectorAll(".sa-tab").forEach(x=>x.classList.toggle("on",x.dataset.b===F.bucket));
+      refresh();
+    }));
+  }
   function toolbar(){
     return `<div class="sa-toolbar">
-      <div class="sa-search"><span class="sa-search-ic">🔎</span><input id="sa-q" placeholder="Buscar RO o vehículo…" value="${esc(F.q)}"></div>
+      <div class="sa-search"><span class="sa-search-ic">🔎</span><input id="sa-q" placeholder="Search RO or vehicle…" value="${esc(F.q)}"></div>
       <div class="sa-filters">
-        <button class="sa-fchip ${F.issue===null?'on':''}" data-f="">Todos</button>
+        <button class="sa-fchip ${F.issue===null?'on':''}" data-f="">All</button>
         ${ISSUES.map(i=>`<button class="sa-fchip ${i.sev} ${F.issue===i.key?'on':''}" data-f="${i.key}">${i.label}</button>`).join("")}
       </div></div>`;
   }
@@ -232,8 +282,8 @@
     }));
   }
   function roCard(r, hl){
-    const chips = r._issues.length ? r._issues.map(i=>`<span class="sa-chip ${i.sev}">${i.label}</span>`).join("") : '<span class="sa-chip ok">✓ Completo</span>';
-    const age = r._age==null?"—":(r._age===0?"hoy":r._age+" d");
+    const chips = r._issues.length ? r._issues.map(i=>`<span class="sa-chip ${i.sev}">${i.label}</span>`).join("") : '<span class="sa-chip ok">✓ Complete</span>';
+    const age = r._age==null?"—":(r._age===0?"today":r._age+" d");
     return `<div class="sa-ro ${sevClass(r)} ${hl?'hl':''}">
       <span class="sa-ro-bar"></span>
       <div class="sa-ro-main">
@@ -249,70 +299,85 @@
     return `<div class="sa-kpis">${items.map(([n,l,c])=>`<div class="sa-kpi ${c||''}"><div class="n" data-to="${n}">0</div><div class="l">${l}</div></div>`).join("")}</div>`;
   }
   function animateKpis(){ body.querySelectorAll(".sa-kpi .n").forEach(el=>animateCount(el, +el.dataset.to)); }
-  function emptyState(){ return `<div class="sa-empty"><div class="sa-empty-ic">🎉</div><div class="sa-empty-ttl">¡Sin pendientes!</div><div class="sa-empty-sub">Nada coincide con el filtro actual.</div></div>`; }
-  function emptyMini(){ return `<div class="sa-empty mini">Sin ROs que coincidan 🎉</div>`; }
+  function emptyState(){
+    const b=bucketDef(F.bucket);
+    const msg = b && b.mandatory ? "Nothing pending here — all ROs in this column are complete." : "No estimates flagged with this filter.";
+    return `<div class="sa-empty"><div class="sa-empty-ic">🎉</div><div class="sa-empty-ttl">All clear</div><div class="sa-empty-sub">${msg}</div></div>`;
+  }
+  function emptyMini(){ return `<div class="sa-empty mini">Nothing here 🎉</div>`; }
   function foot(t){ return `<div class="sa-foot">${esc(t)}</div>`; }
 
-  /* ---------- vista SA ---------- */
+  /* ---------- SA view ---------- */
   function renderSA(){
+    const me = r=> norm(r.service_advisor)===norm(myName);
+    const counts = bucketCounts(me);
+    const need = counts.wip + counts.done;
     const cur = currentRO();
     const curRow = cur ? RO.find(r=> String(r.ro_number)===String(cur)) : null;
     let h = "";
-    if (curRow){ h += `<div class="sa-sec"><div class="sa-sec-h">📍 RO abierto ahora</div>${roCard(curRow,true)}</div>`; }
-    h += `<div class="sa-sec-h">Tus ROs por completar <span class="sa-pill" id="sa-count">0</span></div>`;
+    if (curRow){ h += `<div class="sa-sec"><div class="sa-sec-h">📍 Open now</div>${roCard(curRow,true)}</div>`; }
+    h += `<div class="sa-headline ${need?'warn':'ok'}">
+      <div class="sa-headline-main">${need? `⚠️ ${need} RO${need>1?'s':''} need attention` : "✅ All caught up on active work"}</div>
+      <div class="sa-headline-sub">Work In Progress + Completed must have everything filled</div></div>`;
+    h += tabs(counts);
     h += toolbar();
     h += `<div id="sa-list" class="sa-list"></div>`;
-    h += foot("Datos de Tekmetric (solo lectura). Corrige en Tekmetric y refresca ⟳.");
+    h += foot("Read-only from Tekmetric. Fix in Tekmetric, then refresh ⟳.");
     body.innerHTML = h;
-    fillSAList();
-    wireToolbar(fillSAList);
+    fillSAList(me);
+    wireTabs(()=>fillSAList(me));
+    wireToolbar(()=>fillSAList(me));
   }
-  function fillSAList(){
+  function fillSAList(me){
     const cur = currentRO();
-    const mine = RO.filter(r=> norm(r.service_advisor)===norm(myName) && hit(r)).sort((a,b)=>worst(b)-worst(a));
-    const cnt = $("sa-count"); if(cnt) cnt.textContent = mine.length;
-    $("sa-list").innerHTML = mine.length
-      ? mine.map(r=>roCard(r, cur && String(r.ro_number)===String(cur))).join("")
+    const list = listFor(me);
+    $("sa-list").innerHTML = list.length
+      ? list.map(r=>roCard(r, cur && String(r.ro_number)===String(cur))).join("")
       : emptyState();
   }
 
-  /* ---------- vista Admin ---------- */
+  /* ---------- Admin view ---------- */
+  let openSA = null;
   function renderAdmin(){
-    const active = RO.length, withIss = RO.filter(r=>r._issues.length).length;
-    let h = kpis([[active,"ROs activos",""],[withIss,"con problemas","alert"],[ROLL.length,"SAs",""]]);
+    const counts = bucketCounts(()=>true);
+    const need = counts.wip + counts.done;
+    let h = kpis([[need,"Need attention","alert"],[ROLL.length,"SAs",""],[RO.length,"Active ROs",""]]);
+    h += tabs(counts);
     h += toolbar();
-    h += `<div class="sa-sec-h">Por Service Advisor</div><div id="sa-list" class="sa-acc"></div>`;
-    h += foot("Clic en un SA para ver y filtrar sus ROs.");
+    h += `<div class="sa-sec-h">By Service Advisor</div><div id="sa-list" class="sa-acc"></div>`;
+    h += foot("WIP + Completed are mandatory · Estimates are low priority. Click a SA to expand.");
     body.innerHTML = h;
     animateKpis();
     fillAdminList();
+    wireTabs(fillAdminList);
     wireToolbar(fillAdminList);
   }
   function fillAdminList(){
-    const rows = ROLL.map(s=>({
-      s,
-      list: RO.filter(r=> norm(r.service_advisor)===norm(s.service_advisor) && hit(r)).sort((a,b)=>worst(b)-worst(a))
-    })).sort((a,b)=> b.list.length-a.list.length || (b.s.ros_with_issues||0)-(a.s.ros_with_issues||0));
-    $("sa-list").innerHTML = rows.map(({s,list})=>{
-      const open = F.openSA===s.service_advisor;
-      const ratio = s.active_ros ? Math.round(100*list.length/s.active_ros) : 0;
+    const b = bucketDef(F.bucket);
+    const rows = ROLL.map(s=>{
+      const pred = r=> norm(r.service_advisor)===norm(s.service_advisor);
+      return { s, list: listFor(pred), denom: s[b.of]||0 };
+    }).sort((a,b)=> b.list.length-a.list.length || b.denom-a.denom);
+    $("sa-list").innerHTML = rows.map(({s,list,denom})=>{
+      const open = openSA===s.service_advisor;
+      const ratio = denom ? Math.round(100*list.length/denom) : 0;
       return `<div class="sa-acc-item ${open?'open':''}" data-sa="${esc(s.service_advisor)}">
         <button class="sa-acc-head">
           <span class="sa-acc-name">${esc(s.service_advisor)}</span>
           <span class="sa-acc-bar"><i style="width:${ratio}%"></i></span>
           <span class="sa-acc-badge ${list.length?'':'zero'}">${list.length}</span>
-          <span class="sa-acc-of">/${s.active_ros||0}</span>
+          <span class="sa-acc-of">/${denom}</span>
           <span class="sa-acc-caret">▾</span>
         </button>
         <div class="sa-acc-panel">${list.map(r=>roCard(r,false)).join("")||emptyMini()}</div>
       </div>`;
     }).join("");
     $("sa-list").querySelectorAll(".sa-acc-head").forEach(b=>b.addEventListener("click",()=>{
-      const sa=b.parentElement.dataset.sa; F.openSA = (F.openSA===sa)?null:sa; fillAdminList();
+      const sa=b.parentElement.dataset.sa; openSA = (openSA===sa)?null:sa; fillAdminList();
     }));
   }
 
-  /* ---------- arranque: vigilar sesión (Tekmetric es SPA) ---------- */
+  /* ---------- startup: watch session (Tekmetric is a SPA) ---------- */
   const mo = new MutationObserver(()=>{ clearTimeout(mo._t); mo._t=setTimeout(gate,300); });
   mo.observe(document.documentElement, { subtree:true, childList:true });
   setInterval(gate, 2500);

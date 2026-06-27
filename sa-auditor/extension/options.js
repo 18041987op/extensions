@@ -21,7 +21,7 @@ els.save.addEventListener("click", () => {
     userSelector: els.selector.value.trim(),
   };
   chrome.storage.local.set({ saConfig: c }, () => {
-    els.status.textContent = "✓ Guardado. Refresca la pestaña de Tekmetric (F5).";
+    els.status.textContent = "✓ Saved. Refresh the Tekmetric tab (F5).";
     els.status.className = "status ok";
   });
 });

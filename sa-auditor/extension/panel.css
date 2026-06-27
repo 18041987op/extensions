@@ -69,6 +69,25 @@
 .sa-kpi .n{ font-size:23px; font-weight:900; line-height:1.1; } .sa-kpi.alert .n{ color:var(--high); }
 .sa-kpi .l{ font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-top:2px; }
 
+/* headline (SA view) */
+.sa-headline{ border-radius:12px; padding:11px 13px; margin-bottom:12px; border:1px solid var(--line); background:var(--card); }
+.sa-headline.warn{ background:linear-gradient(135deg,#fff7ed,#fee2e2); border-color:#fecaca; }
+.sa-headline.ok{ background:linear-gradient(135deg,#f0fdf4,#dcfce7); border-color:#bbf7d0; }
+.sa-headline-main{ font-weight:800; font-size:14px; color:var(--ink); }
+.sa-headline-sub{ font-size:11px; color:var(--muted); margin-top:2px; }
+
+/* status tabs */
+.sa-tabs{ display:flex; gap:6px; margin-bottom:12px; }
+.sa-tab{ flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; background:var(--card); border:1px solid var(--line);
+  border-radius:10px; padding:8px 6px; cursor:pointer; font-size:11.5px; font-weight:700; color:var(--muted); transition:all .14s; }
+.sa-tab:hover{ border-color:#cbd5e1; color:var(--ink); }
+.sa-tab.on{ border-color:var(--navy); color:#fff; background:linear-gradient(135deg,var(--navy),var(--navy2)); }
+.sa-tab.soft{ opacity:.92; }
+.sa-tab.soft.on{ background:linear-gradient(135deg,#475569,#64748b); border-color:#475569; }
+.sa-tab-n{ font-size:14px; font-weight:900; background:rgba(0,0,0,.06); color:inherit; min-width:22px; padding:0 6px; border-radius:20px; }
+.sa-tab.on .sa-tab-n{ background:rgba(255,255,255,.22); }
+.sa-tab-n.zero{ opacity:.5; }
+
 /* toolbar: search + filter chips */
 .sa-toolbar{ margin-bottom:12px; }
 .sa-search{ display:flex; align-items:center; gap:7px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:7px 10px; margin-bottom:8px; transition:border-color .15s,box-shadow .15s; }
@@ -107,6 +126,8 @@
 .sa-ro-bar{ width:4px; flex:0 0 auto; background:var(--muted); }
 .sa-ro.high .sa-ro-bar{ background:var(--high); } .sa-ro.med .sa-ro-bar{ background:var(--med); }
 .sa-ro.low .sa-ro-bar{ background:var(--low); } .sa-ro.ok .sa-ro-bar{ background:var(--ok); }
+.sa-ro.est .sa-ro-bar{ background:#cbd5e1; } .sa-ro.est{ opacity:.9; }
+.sa-ro.est .sa-chip{ filter:saturate(.6); }
 .sa-ro.hl{ border-color:var(--teal); box-shadow:0 0 0 2px rgba(22,182,168,.28); }
 .sa-ro-main{ flex:1; padding:9px 11px; min-width:0; }
 .sa-ro-top{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
