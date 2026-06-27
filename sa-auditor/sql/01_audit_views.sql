@@ -9,13 +9,20 @@
 --   REPAIR_IN_PROGRESS  -> Work In Progress (obligatorio: todo completo)
 --   COMPLETE            -> Completed         (obligatorio: todo completo)
 --
--- Notas de datos (sincronizado de Tekmetric):
+-- Estados de un JOB dentro del RO:
+--   selected=false           -> "apagado" (opción rechazada): SE EXCLUYE de la auditoría.
+--   selected=true, auth=false -> creado, pendiente de aprobación.
+--   authorized=true          -> aprobado (mano/pulgar verde).
+-- Las partes (tekmetric_job_line_items.job_tekmetric_id) se ligan a su job, así
+-- que un job apagado ya no contamina las banderas de partes del RO.
+--
+-- Notas de datos:
 --   * tekmetric_customers.address es jsonb a veces doble-codificado (string).
---   * El RO NO trae appointmentId fiable; el waiter (appointmentOption STAY) y
---     la hora de entrega (pickupTime) se cruzan best-effort por vehículo+fecha
---     desde tekmetric_appointments (cobertura parcial hasta mejorar el sync).
---   * Los CTE (jobs, line_items, customers, appointments) se filtran a los ROs
---     activos ANTES de agregar/decodificar jsonb, para evitar timeouts (57014).
+--   * El RO NO trae appointmentId fiable; waiter (appointmentOption STAY) y hora
+--     de entrega (pickupTime) se cruzan best-effort por vehículo+fecha (cobertura
+--     parcial hasta mejorar el sync).
+--   * Los CTE se filtran a los ROs activos ANTES de agregar/decodificar jsonb,
+--     para evitar timeouts (57014).
 --
 -- Deshacer: drop view public.tech_board; drop view public.sa_rollup; drop view public.ro_audit;
 -- ============================================================
@@ -30,26 +37,48 @@ with active_ro as (
   select * from public.tekmetric_repair_orders
   where deleted_at is null and status in ('ESTIMATE','REPAIR_IN_PROGRESS','COMPLETE')
 ),
-job_agg as (
-  select j.repair_order_id,
-    count(*) filter (where j.deleted_at is null) as jobs_total,
-    count(*) filter (where j.deleted_at is null and j.authorized) as jobs_authorized,
-    round(coalesce(sum(j.labor_hours) filter (where j.deleted_at is null and j.authorized),0),2) as labor_hours,
-    bool_or(j.deleted_at is null and j.authorized and j.technician_id is null) as auth_job_without_tech,
-    bool_or(j.deleted_at is null and j.authorized and coalesce(j.labor_hours,0)=0) as auth_job_without_labor,
-    bool_or(j.deleted_at is null and j.authorized and coalesce(j.parts_sub_total,0)=0) as auth_job_without_parts
+-- Un row por JOB seleccionado (excluye jobs "apagados": selected=false).
+jobx as (
+  select j.repair_order_id, j.tekmetric_id as job_id, j.name as title,
+    j.authorized, j.labor_hours,
+    (j.authorized and j.technician_id is null)     as no_tech,
+    (j.authorized and coalesce(j.labor_hours,0)=0) as no_labor,
+    coalesce(bool_or(li.line_type ilike '%part%' and (li.unit_price is null or li.unit_price=0)),false) as no_price,
+    coalesce(bool_or(li.line_type ilike '%part%' and (li.unit_cost  is null or li.unit_cost =0)),false) as no_cost,
+    coalesce(bool_or(li.line_type ilike '%part%' and (li.quantity   is null or li.quantity  =0)),false) as no_qty
   from public.tekmetric_jobs j
-  where j.repair_order_id in (select tekmetric_id from active_ro)
-  group by j.repair_order_id
+  left join public.tekmetric_job_line_items li
+    on li.job_tekmetric_id = j.tekmetric_id and li.deleted_at is null
+  where j.deleted_at is null and coalesce(j.archived,false)=false and j.selected = true
+    and j.repair_order_id in (select tekmetric_id from active_ro)
+  group by j.repair_order_id, j.tekmetric_id, j.name, j.authorized, j.labor_hours, j.technician_id
 ),
-li_agg as (
-  select li.repair_order_id,
-    bool_or(li.deleted_at is null and li.line_type ilike '%part%' and (li.unit_price is null or li.unit_price=0)) as part_without_price,
-    bool_or(li.deleted_at is null and li.line_type ilike '%part%' and (li.unit_cost is null or li.unit_cost=0)) as part_without_cost,
-    bool_or(li.deleted_at is null and li.line_type ilike '%part%' and (li.quantity is null or li.quantity=0)) as part_without_qty
-  from public.tekmetric_job_line_items li
-  where li.repair_order_id in (select tekmetric_id from active_ro)
-  group by li.repair_order_id
+jobagg as (
+  select repair_order_id,
+    count(*)                           as jobs_total,
+    count(*) filter (where authorized) as jobs_authorized,
+    round(coalesce(sum(labor_hours) filter (where authorized),0),2) as labor_hours,
+    bool_or(no_tech)  as auth_job_without_tech,
+    bool_or(no_labor) as auth_job_without_labor,
+    bool_or(no_price) as part_without_price,
+    bool_or(no_cost)  as part_without_cost,
+    bool_or(no_qty)   as part_without_qty,
+    coalesce(
+      jsonb_agg(jsonb_build_object('title', title, 'issues', to_jsonb(arr)) order by title)
+      filter (where coalesce(array_length(arr,1),0) > 0),
+      '[]'::jsonb
+    ) as problem_jobs
+  from (
+    select q.*, array_remove(array[
+      case when no_tech  then 'No tech'             end,
+      case when no_labor then 'No labor'            end,
+      case when no_price then 'Part: no sale price' end,
+      case when no_cost  then 'Part: no cost'       end,
+      case when no_qty   then 'Part: no qty'        end
+    ], null) as arr
+    from jobx q
+  ) z
+  group by repair_order_id
 ),
 cust as (
   select c.tekmetric_id,
@@ -71,8 +100,7 @@ appt_raw as (
   select a.vehicle_id, a.start_time,
     case when jsonb_typeof(a.raw_data)='string' then (a.raw_data #>> '{}')::jsonb else a.raw_data end as j
   from public.tekmetric_appointments a
-  where a.deleted_at is null
-    and a.vehicle_id in (select vehicle_id from active_ro)
+  where a.deleted_at is null and a.vehicle_id in (select vehicle_id from active_ro)
 ),
 appt_best as (
   select distinct on (ro.tekmetric_id) ro.tekmetric_id,
@@ -99,11 +127,11 @@ select
   coalesce(ja.labor_hours,0)                       as labor_hours,
   coalesce(ja.auth_job_without_tech,false)         as auth_job_without_tech,
   coalesce(ja.auth_job_without_labor,false)        as auth_job_without_labor,
-  coalesce(ja.auth_job_without_parts,false)        as auth_job_without_parts,
-  coalesce(la.part_without_price,false)            as part_without_price,
-  coalesce(la.part_without_cost,false)             as part_without_cost,
-  coalesce(la.part_without_qty,false)              as part_without_qty,
+  coalesce(ja.part_without_price,false)            as part_without_price,
+  coalesce(ja.part_without_cost,false)             as part_without_cost,
+  coalesce(ja.part_without_qty,false)              as part_without_qty,
   (coalesce(ja.jobs_total,0) > 0 and coalesce(ja.jobs_authorized,0) = 0) as no_authorized_jobs,
+  coalesce(ja.problem_jobs,'[]'::jsonb)            as problem_jobs,
   nullif(trim(te.full_name),'')                    as technician,
   coalesce(r.estimated_completion_date, (ab.pickup_time)::timestamptz) as eta,
   coalesce(nullif(trim(m.clab->>'name'),''), nullif(trim(m.lab->>'name'),'')) as ro_label,
@@ -117,8 +145,7 @@ left join public.tekmetric_employees te on te.tekmetric_id = r.technician_id
 left join cust cu on cu.tekmetric_id = r.customer_id
 left join meta m  on m.tekmetric_id = r.tekmetric_id
 left join appt_best ab on ab.tekmetric_id = r.tekmetric_id
-left join job_agg ja on ja.repair_order_id = r.tekmetric_id
-left join li_agg la on la.repair_order_id = r.tekmetric_id;
+left join jobagg ja on ja.repair_order_id = r.tekmetric_id;
 
 create view public.sa_rollup
 with (security_invoker = false) as
@@ -149,8 +176,7 @@ from public.ro_audit
 group by service_advisor, service_writer_id;
 
 -- Carga por técnico (jobs autorizados en ROs WIP/Completed): horas asignadas,
--- completadas y pendientes (= capacidad), y # de ROs.
--- SOLO técnicos ACTIVOS (e.is_active): excluye ex-técnicos con jobs históricos.
+-- completadas y pendientes (= capacidad), y # de ROs. SOLO técnicos ACTIVOS.
 create view public.tech_board
 with (security_invoker = false) as
 with jb as (

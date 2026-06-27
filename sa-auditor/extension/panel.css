@@ -161,6 +161,13 @@
 .sa-chip.med{ background:var(--med-bg); color:var(--med); }
 .sa-chip.low{ background:var(--low-bg); color:var(--low); }
 .sa-chip.ok{ background:var(--ok-bg); color:var(--ok); }
+.sa-chip.jb{ background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+
+/* per-job breakdown */
+.sa-jobs{ margin-top:7px; display:flex; flex-direction:column; gap:6px; }
+.sa-job{ background:#f8fafc; border:1px solid var(--line); border-left:3px solid var(--med); border-radius:8px; padding:6px 9px; }
+.sa-job-t{ font-size:12px; font-weight:700; color:var(--ink); margin-bottom:4px; }
+.sa-job-iss{ display:flex; flex-wrap:wrap; gap:4px; }
 
 /* empty states */
 .sa-empty{ background:var(--card); border:1px dashed var(--line); border-radius:12px; padding:22px 14px; text-align:center; }

@@ -36,6 +36,9 @@
   // "no_authorized_jobs" is an estimate-only soft signal, so it's not mandatory here.
   const MANDATORY_KEYS = ["missing_vin","missing_miles","missing_address","auth_job_without_tech",
     "auth_job_without_labor","part_without_price","part_without_cost","part_without_qty"];
+  // RO-level issues (shown as chips on the RO). Job-level issues (tech/labor/parts)
+  // are shown per job via problem_jobs, with the job title.
+  const RO_LEVEL_KEYS = ["missing_vin","missing_miles","missing_address","no_authorized_jobs"];
 
   // Status buckets (the 3 Tekmetric board columns).
   const BUCKETS = [
@@ -301,8 +304,17 @@
   function techTag(r){ return r.technician?`<span class="sa-ro-tech">🔧 ${esc(r.technician)}</span>`:""; }
 
   function roCard(r, hl){
-    const chips = r._issues.length ? r._issues.map(i=>`<span class="sa-chip ${i.sev}">${i.label}</span>`).join("") : '<span class="sa-chip ok">✓ Complete</span>';
     const age = r._age==null?"—":(r._age===0?"today":r._age+" d");
+    // RO-level chips (VIN / miles / address / no authorized jobs)
+    const roChips = r._issues.filter(i=>RO_LEVEL_KEYS.includes(i.key))
+      .map(i=>`<span class="sa-chip ${i.sev}">${i.label}</span>`).join("");
+    // Per-job breakdown (title + what's missing), from problem_jobs
+    const jobs = Array.isArray(r.problem_jobs) ? r.problem_jobs : [];
+    const jobHtml = jobs.length ? `<div class="sa-jobs">${jobs.map(j=>
+      `<div class="sa-job"><div class="sa-job-t">🔧 ${esc(j.title||"(untitled job)")}</div>
+        <div class="sa-job-iss">${(j.issues||[]).map(t=>`<span class="sa-chip jb">${esc(t)}</span>`).join("")}</div></div>`).join("")}</div>` : "";
+    const head = `${r.customer_waiting?'<span class="sa-chip high">🪑 Waiter</span>':''}${etaHtml(r)}${roChips}`;
+    const complete = !head && !jobHtml;
     return `<div class="sa-ro ${sevClass(r)} ${hl?'hl':''}">
       <span class="sa-ro-bar"></span>
       <div class="sa-ro-main">
@@ -312,7 +324,8 @@
           ${techTag(r)}
           <span class="sa-ro-age">${age}</span>
         </div>
-        <div class="sa-chips">${r.customer_waiting?'<span class="sa-chip high">🪑 Waiter</span>':''}${etaHtml(r)}${chips}</div>
+        ${head||complete ? `<div class="sa-chips">${head}${complete?'<span class="sa-chip ok">✓ Complete</span>':''}</div>` : ""}
+        ${jobHtml}
       </div></div>`;
   }
   function kpis(items){
