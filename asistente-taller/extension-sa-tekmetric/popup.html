@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { width: 280px; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #1f2933; }
+    .hd { background: linear-gradient(135deg, #11324d, #1d5b86); color: #fff; padding: 12px 14px; }
+    .hd h1 { font-size: 14px; margin: 0; }
+    .hd p { font-size: 11px; margin: 3px 0 0; opacity: .85; }
+    .body { padding: 12px 14px; }
+    .stat { display: flex; justify-content: space-between; font-size: 13px; padding: 5px 0; border-bottom: 1px solid #eef2f6; }
+    .stat b { color: #11324d; }
+    .who { font-size: 12px; color: #52606d; margin: 8px 0; }
+    button { width: 100%; border: 1px solid #cfd8e0; background: #f7f9fb; color: #25313c; padding: 8px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 12px; margin-top: 8px; }
+    button:hover { background: #eef2f6; }
+    .primary { background: #1d5b86; border-color: #1d5b86; color: #fff; }
+    .note { font-size: 11px; color: #7b8794; margin-top: 10px; }
+    a { color: #1d5b86; }
+  </style>
+</head>
+<body>
+  <div class="hd">
+    <h1>Asistente SA — Tekmetric</h1>
+    <p>Solo se activa en tekmetric.com</p>
+  </div>
+  <div class="body">
+    <div class="who" id="who">Identificando…</div>
+    <div class="stat"><span>Aperturas de RO hoy</span><b id="today">—</b></div>
+    <div class="stat"><span>ROs distintos hoy</span><b id="unique">—</b></div>
+    <div class="stat"><span>Total en el registro</span><b id="total">—</b></div>
+    <button class="primary" id="export">Exportar registro a CSV</button>
+    <div class="note">El panel completo (pendientes, registro, ajustes) aparece dentro de Tekmetric, abajo a la derecha. Todo se guarda solo en esta computadora.</div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

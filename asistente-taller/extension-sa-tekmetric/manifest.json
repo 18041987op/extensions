@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Asistente SA — Tekmetric",
+  "version": "0.2.0",
+  "description": "Ayuda al Service Advisor dentro de Tekmetric: analiza los tableros (Job Board / Tech Board) y audita cada RO (VIN, datos del cliente, promise time, jobs y partes), con revisión de gramática opcional por IA. Registra qué usuario abre cada RO. Solo se activa en Tekmetric.",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["*://*.tekmetric.com/*"],
+  "background": { "service_worker": "background.js" },
+  "options_page": "options.html",
+  "action": {
+    "default_title": "Asistente SA — Tekmetric",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.tekmetric.com/*"],
+      "js": ["content.js"],
+      "css": ["panel.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

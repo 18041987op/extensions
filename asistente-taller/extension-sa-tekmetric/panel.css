@@ -1,0 +1,123 @@
+/* Asistente SA — Tekmetric · panel.css (v0.2)
+   Paleta basada en Tekmetric: navy muy oscuro + acento teal. */
+:root {
+  --tk-nav: #16273c;
+  --tk-nav2: #1f456a;
+  --tk-teal: #18b3c6;
+  --tk-teal-d: #128fa0;
+  --tk-red: #e5484d;
+  --tk-amber: #f3a712;
+  --tk-green: #28b06a;
+  --tk-ink: #1f2b39;
+  --tk-line: #e2e8f0;
+  --tk-soft: #f1f5f9;
+}
+
+#tk-widget {
+  position: fixed; z-index: 2147483647;
+  background: #ffffff; color: var(--tk-ink);
+  border: 1px solid #cdd7e3; border-radius: 12px;
+  box-shadow: 0 12px 38px rgba(11, 25, 45, 0.30);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 13px; line-height: 1.45;
+  display: flex; flex-direction: column; overflow: hidden; min-width: 300px;
+}
+#tk-widget * { box-sizing: border-box; }
+
+.tk-head {
+  display: flex; align-items: center; gap: 7px; padding: 9px 11px;
+  background: linear-gradient(135deg, var(--tk-nav), var(--tk-nav2));
+  color: #fff; cursor: move; user-select: none;
+}
+.tk-ttl { font-weight: 700; letter-spacing: .2px; }
+.tk-who { font-size: 12px; opacity: .85; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-sp { flex: 1; }
+.tk-dot { width: 9px; height: 9px; border-radius: 50%; background: #8aa0b8; flex: none; }
+.tk-dot.ready { background: var(--tk-green); }
+.tk-dot.working { background: var(--tk-amber); }
+.tk-dot.error { background: var(--tk-red); }
+.tk-icon { background: rgba(255,255,255,.16); border: none; color: #fff; width: 24px; height: 24px; border-radius: 6px; cursor: pointer; font-size: 13px; line-height: 1; }
+.tk-icon:hover { background: rgba(255,255,255,.30); }
+.tk-icon.tk-x:hover { background: var(--tk-red); }
+
+.tk-tabs { display: flex; gap: 4px; padding: 7px 8px 0; background: var(--tk-soft); }
+.tk-tab { flex: 1; border: none; background: #dde6ef; color: #46566a; padding: 7px 4px; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; font-size: 12px; }
+.tk-tab.active { background: #fff; color: var(--tk-nav); }
+
+.tk-bodywrap { flex: 1; overflow: auto; padding: 11px; background: #fff; }
+#tk-widget.tk-collapsed .tk-bodywrap, #tk-widget.tk-collapsed .tk-tabs, #tk-widget.tk-collapsed .tk-resize { display: none; }
+#tk-widget.tk-collapsed { height: auto !important; }
+
+.tk-row { display: flex; gap: 6px; margin-bottom: 8px; }
+.tk-btn { border: 1px solid #cdd7e3; background: #f7fafc; color: #22303f; padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; }
+.tk-btn:hover { background: #eef3f8; }
+.tk-btn:disabled { opacity: .5; cursor: not-allowed; }
+.tk-primary { background: var(--tk-teal); border-color: var(--tk-teal); color: #06303a; }
+.tk-primary:hover { background: var(--tk-teal-d); color: #fff; }
+.tk-sec { background: #fff; }
+.tk-full { width: 100%; }
+.tk-danger { color: #b42318; border-color: #f0c3bd; background: #fff5f4; }
+.tk-danger:hover { background: #fde9e7; }
+
+.tk-in { flex: 1; border: 1px solid #cdd7e3; border-radius: 8px; padding: 7px 9px; font-size: 13px; min-width: 0; }
+.tk-lbl { display: block; font-size: 11px; font-weight: 700; color: #56657a; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 4px; }
+.tk-hint { font-size: 11px; color: #78889c; margin-top: 4px; }
+.tk-divider { height: 1px; background: var(--tk-line); margin: 12px 0; }
+
+.tk-statusline, .tk-summary { font-size: 12px; color: #46566a; margin-bottom: 8px; }
+.tk-statusline b, .tk-summary b { color: var(--tk-nav); }
+.tk-sub { font-size: 11px; color: #78889c; margin-top: 2px; }
+.tk-warnt { color: var(--tk-amber); }
+.tk-failt { color: var(--tk-red); }
+
+/* KPIs */
+.tk-kpis { display: flex; gap: 6px; margin-bottom: 10px; }
+.tk-kpi { flex: 1; background: var(--tk-soft); border: 1px solid var(--tk-line); border-radius: 9px; padding: 8px 6px; text-align: center; }
+.tk-kpival { font-size: 18px; font-weight: 800; color: var(--tk-nav); }
+.tk-kpilbl { font-size: 10px; color: #78889c; text-transform: uppercase; letter-spacing: .3px; }
+
+/* Secciones */
+.tk-sec { margin-top: 12px; }
+.tk-sec h3 { font-size: 12px; margin: 0 0 6px; color: var(--tk-nav); text-transform: uppercase; letter-spacing: .3px; }
+
+/* Tablas */
+.tk-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.tk-tbl th { text-align: left; color: #78889c; font-weight: 600; padding: 4px 6px; border-bottom: 1px solid var(--tk-line); font-size: 11px; }
+.tk-tbl td { padding: 5px 6px; border-bottom: 1px solid #eef2f6; vertical-align: top; }
+.tk-tbl tr.old td { background: #fff7ed; }
+.tk-ro { font-weight: 700; color: var(--tk-nav2); white-space: nowrap; }
+.tk-age { white-space: nowrap; font-weight: 600; }
+.tk-when { color: #78889c; white-space: nowrap; }
+.tk-cardtxt { color: #56657a; }
+
+/* Encabezado del RO */
+.tk-job { background: var(--tk-soft); border: 1px solid var(--tk-line); border-radius: 9px; padding: 8px 10px; margin-bottom: 8px; }
+
+/* Checklist de auditoría */
+.tk-checks { display: flex; flex-direction: column; gap: 5px; }
+.tk-check { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--tk-line); }
+.tk-check.ok { background: #f0fbf5; border-color: #c7ebd6; }
+.tk-check.warn { background: #fff8ec; border-color: #f7e2bd; }
+.tk-check.fail { background: #fef2f2; border-color: #f4cfcf; }
+.tk-ck { width: 18px; height: 18px; border-radius: 50%; color: #fff; font-size: 12px; line-height: 18px; text-align: center; flex: none; font-weight: 700; }
+.tk-check.ok .tk-ck { background: var(--tk-green); }
+.tk-check.warn .tk-ck { background: var(--tk-amber); }
+.tk-check.fail .tk-ck { background: var(--tk-red); }
+.tk-ckd { font-size: 11px; color: #56657a; margin-top: 1px; word-break: break-word; }
+
+.tk-diag { font-size: 12px; background: var(--tk-soft); border: 1px solid var(--tk-line); border-radius: 8px; padding: 8px; word-break: break-word; }
+.tk-diag div { margin-bottom: 4px; }
+
+.tk-resize { height: 14px; cursor: nwse-resize; background:
+  linear-gradient(135deg, transparent 0 50%, #b9c4d2 50% 60%, transparent 60% 70%, #b9c4d2 70% 80%, transparent 80%);
+  background-position: bottom right; background-repeat: no-repeat; background-size: 14px 14px; }
+
+/* Mini-botón flotante para reabrir */
+#tk-launcher {
+  position: fixed; right: 16px; bottom: 16px; z-index: 2147483647;
+  width: 46px; height: 46px; border-radius: 50%; border: none; cursor: pointer;
+  background: linear-gradient(135deg, var(--tk-nav), var(--tk-nav2)); color: #fff; font-size: 20px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 20px rgba(11, 25, 45, .38);
+}
+#tk-launcher:hover { filter: brightness(1.12); }

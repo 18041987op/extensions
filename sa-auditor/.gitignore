@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+*.log
+.env
+.env.*
+# La anon key de Supabase es publishable (segura para cliente), pero si prefieres
+# no versionar el dashboard con la llave embebida, ignóralo aquí:
+# dashboard/index.html

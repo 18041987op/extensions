@@ -1,0 +1,105 @@
+/* ============================================================
+   Estilos del panel flotante del Asistente de Taller.
+   Todo lleva el prefijo "at-" (Asistente Taller) para no chocar
+   con los estilos de la página donde se inyecta (ALLDATA, etc.).
+   ============================================================ */
+
+#at-panel {
+  position: fixed;
+  top: 90px;
+  right: 16px;
+  width: 280px;
+  z-index: 2147483647; /* lo más alto posible: siempre encima de todo */
+  background: #1f2933;
+  color: #f5f7fa;
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  user-select: none;
+}
+
+#at-panel.at-collapsed .at-body { display: none; }
+
+.at-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #111827;
+  cursor: move; /* el encabezado sirve para arrastrar el panel */
+}
+
+.at-header .at-title { font-weight: 600; font-size: 13px; }
+
+.at-header .at-toggle {
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: #9aa5b1;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.at-body { padding: 12px; }
+
+.at-section { margin-bottom: 14px; }
+.at-section:last-child { margin-bottom: 0; }
+
+.at-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #9aa5b1;
+  margin-bottom: 6px;
+}
+
+.at-row { display: flex; gap: 6px; }
+
+.at-input {
+  flex: 1;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid #3e4c59;
+  background: #2b3742;
+  color: #f5f7fa;
+  font-size: 13px;
+}
+.at-input::placeholder { color: #7b8794; }
+
+.at-btn {
+  padding: 7px 11px;
+  border-radius: 7px;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.at-btn:hover { background: #1d4ed8; }
+.at-btn.at-btn-secondary { background: #3e4c59; }
+.at-btn.at-btn-secondary:hover { background: #52606d; }
+.at-btn:disabled { opacity: 0.5; cursor: default; }
+
+.at-btn-full { width: 100%; }
+
+.at-status {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #9aa5b1;
+  min-height: 14px;
+}
+
+/* Resaltado de coincidencias del filtro */
+.at-highlight {
+  background: #fde047;
+  color: #111827;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+/* Modo enfoque: atenúa los bloques que NO contienen la palabra buscada */
+.at-dimmed { opacity: 0.25 !important; transition: opacity 0.15s; }

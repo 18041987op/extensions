@@ -1,0 +1,139 @@
+/* ============================================================
+   Asistente de Taller — panel unificado (movible/redimensionable)
+   Todo con prefijo at- para no chocar con ALLDATA.
+   ============================================================ */
+#at-widget{
+  position:fixed; z-index:2147483647;
+  display:flex; flex-direction:column;
+  background:#eef1f5; color:#1f2933;
+  border-radius:12px; overflow:hidden;
+  box-shadow:0 10px 34px rgba(10,25,50,.32);
+  font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; font-size:13px; line-height:1.5;
+  min-width:280px;
+}
+#at-widget.at-collapsed{ height:auto !important; }
+#at-widget.at-collapsed .at-tabs,
+#at-widget.at-collapsed .at-bodywrap,
+#at-widget.at-collapsed .at-resize{ display:none; }
+
+/* Encabezado (arrastrable) */
+#at-widget .at-head{
+  display:flex; align-items:center; gap:8px;
+  background:linear-gradient(135deg,#13538b,#0e3f6b); color:#fff;
+  padding:9px 12px; cursor:move; user-select:none; flex:0 0 auto;
+}
+#at-widget .at-ttl{ font-weight:600; font-size:13px; white-space:nowrap; }
+#at-widget .at-sp{ flex:1; }
+#at-widget .at-icon{ background:rgba(255,255,255,.15); border:none; color:#fff; width:22px; height:22px;
+  border-radius:6px; cursor:pointer; font-size:12px; line-height:1; }
+#at-widget .at-icon:hover{ background:rgba(255,255,255,.28); }
+#at-widget .at-icon#at-close:hover{ background:#e5484d; }
+
+/* Mini-botón flotante para reabrir el panel tras cerrarlo */
+#at-launcher{
+  position:fixed; right:16px; bottom:16px; z-index:2147483647;
+  width:46px; height:46px; border-radius:50%; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#13538b,#0e3f6b); color:#fff; font-size:20px;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 6px 20px rgba(10,25,50,.35);
+}
+#at-launcher:hover{ filter:brightness(1.1); }
+.at-dot{ width:9px; height:9px; border-radius:50%; background:#9aa5b1; flex:0 0 auto; }
+.at-dot.idle{ background:#9aa5b1; }
+.at-dot.working{ background:#fbbf24; animation:atpulse 1s ease-in-out infinite; }
+.at-dot.ready{ background:#4ade80; }
+.at-dot.error{ background:#f87171; }
+@keyframes atpulse{ 0%,100%{ opacity:1; } 50%{ opacity:.3; } }
+
+/* Pestañas */
+#at-widget .at-tabs{ display:flex; background:#dfe5ec; flex:0 0 auto; }
+#at-widget .at-tab{ flex:1; border:none; background:transparent; padding:9px 6px; font-size:12.5px;
+  font-weight:600; color:#52606d; cursor:pointer; border-bottom:2px solid transparent; }
+#at-widget .at-tab:hover{ background:#e7ecf2; }
+#at-widget .at-tab.active{ color:#13538b; border-bottom-color:#13538b; background:#eef1f5; }
+
+/* Cuerpo */
+#at-widget .at-bodywrap{ flex:1 1 auto; overflow-y:auto; padding:12px; }
+#at-widget .at-pane{ }
+
+/* Controles */
+#at-widget .at-row{ display:flex; gap:6px; }
+#at-widget .at-in{ flex:1; padding:7px 9px; border-radius:7px; border:1px solid #cdd5df; background:#fff; color:#1f2933; font-size:13px; }
+#at-widget .at-in::placeholder{ color:#9aa5b1; }
+#at-widget .at-btn{ padding:7px 11px; border-radius:7px; border:none; background:#3e4c59; color:#fff; font-size:13px; font-weight:600; cursor:pointer; }
+#at-widget .at-btn:hover{ filter:brightness(1.08); }
+#at-widget .at-btn.at-primary{ background:#13538b; }
+#at-widget .at-btn.at-sec{ background:#6b7787; }
+#at-widget .at-btn.at-full{ width:100%; }
+#at-widget .at-btn:disabled{ opacity:.55; cursor:default; }
+#at-widget .at-st{ margin-top:8px; font-size:11.5px; color:#6b7787; min-height:14px; }
+
+.at-ficharow{ display:flex; align-items:center; gap:10px; }
+.at-ficharow .at-btn{ flex:1; }
+.at-auto{ display:flex; align-items:center; gap:5px; font-size:12.5px; color:#3e4c59; cursor:pointer; white-space:nowrap; }
+.at-auto input{ accent-color:#13538b; cursor:pointer; }
+.at-statusline{ margin-top:9px; font-size:12px; color:#52606d; }
+.at-statusline a{ color:#13538b; }
+
+/* Manija de redimensión */
+#at-widget .at-resize{ position:absolute; right:2px; bottom:2px; width:16px; height:16px; cursor:nwse-resize;
+  background:linear-gradient(135deg,transparent 50%,#9aa5b1 50%,#9aa5b1 60%,transparent 60%,transparent 72%,#9aa5b1 72%,#9aa5b1 82%,transparent 82%); }
+
+/* Mensajes / spinner */
+.at-msg{ background:#fff; border:1px solid #e3e8ee; border-radius:10px; padding:14px; text-align:center; color:#3e4c59; }
+.at-msg a{ color:#13538b; }
+.at-spin{ display:inline-block; width:15px; height:15px; border:2px solid #cdd5df; border-top-color:#13538b; border-radius:50%; animation:atspin .8s linear infinite; vertical-align:-3px; margin-right:6px; }
+@keyframes atspin{ to{ transform:rotate(360deg); } }
+
+/* ====== Ficha ====== */
+.at-job{ background:#fff; border:1px solid #e3e8ee; border-radius:10px; overflow:hidden; margin-bottom:10px; }
+.at-veh{ background:#0e3f6b; color:#cfe4fb; font-size:11.5px; padding:7px 12px; }
+.at-title{ font-size:15px; font-weight:700; padding:9px 12px 6px; }
+.at-sum{ display:grid; grid-template-columns:repeat(4,1fr); border-top:1px solid #e3e8ee; }
+.at-sum div{ padding:8px 4px; text-align:center; border-right:1px solid #e3e8ee; }
+.at-sum div:last-child{ border-right:none; }
+.at-sum span{ display:block; font-size:9.5px; text-transform:uppercase; letter-spacing:.3px; color:#6b7787; }
+.at-sum b{ font-size:15px; }
+
+.at-sec{ background:#fff; border:1px solid #e3e8ee; border-radius:10px; margin-bottom:10px; overflow:hidden; }
+.at-sec h3{ margin:0; font-size:12.5px; padding:9px 12px; background:#f7f9fb; border-bottom:1px solid #e3e8ee; }
+.at-secbody{ padding:4px 12px; }
+.at-secbody table{ width:100%; border-collapse:collapse; }
+.at-secbody th{ font-size:9.5px; text-transform:uppercase; letter-spacing:.3px; color:#6b7787; text-align:left; padding:6px 5px; }
+.at-secbody td{ padding:7px 5px; border-top:1px solid #eef1f5; vertical-align:top; font-size:13px; }
+.at-pill{ display:inline-block; background:#eaf2fb; color:#13538b; border-radius:20px; padding:1px 8px; font-size:11px; font-weight:600; margin-right:5px; }
+
+.at-alert{ display:flex; gap:8px; align-items:flex-start; border-radius:8px; padding:9px 11px; margin:7px 0; font-size:12.5px; }
+.at-alert.warn{ background:#fff6e0; border:1px solid #f0d98a; }
+.at-alert.stop{ background:#fdecea; border:1px solid #f0b6ae; }
+.at-alert.tsb{ background:#eef0fb; border:1px solid #c3c8ef; }
+.at-alert b{ display:block; margin-bottom:2px; }
+.at-atag{ font-size:9.5px; font-weight:700; padding:2px 6px; border-radius:5px; color:#fff; flex:0 0 auto; }
+.at-alert.warn .at-atag{ background:#c87f00; }
+.at-alert.stop .at-atag{ background:#c0392b; }
+.at-alert.tsb .at-atag{ background:#5b5fc7; }
+
+ol.at-steps{ list-style:none; margin:0; padding:0; counter-reset:s; }
+ol.at-steps li{ position:relative; padding:9px 30px 9px 32px; border-top:1px solid #eef1f5; }
+ol.at-steps li:first-child{ border-top:none; }
+ol.at-steps li::before{ counter-increment:s; content:counter(s); position:absolute; left:6px; top:9px; width:20px; height:20px;
+  border-radius:50%; background:#13538b; color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+ol.at-steps li.done{ opacity:.5; } ol.at-steps li.done .at-steptxt{ text-decoration:line-through; }
+.at-chk{ position:absolute; right:8px; top:10px; width:17px; height:17px; cursor:pointer; accent-color:#1f9d57; }
+.at-stepwarn{ margin-top:6px; padding:6px 8px; border-radius:6px; font-size:12px; background:#fff6e0; border-left:3px solid #c87f00; }
+.at-stepwarn.stop{ background:#fdecea; border-left-color:#c0392b; }
+.at-dep{ margin-top:5px; font-size:11.5px; color:#6b7787; }
+.at-foot{ font-size:11px; color:#6b7787; padding:4px 2px 8px; text-align:center; }
+
+/* Resaltado del filtro (en la página) */
+.at-hl{ background:#fde047; color:#111827; border-radius:3px; padding:0 1px; }
+.at-dim{ opacity:.25 !important; transition:opacity .15s; }
+
+/* ====== Etiquetas de fuente y secciones nuevas (v0.5) ====== */
+.at-legend{ font-size:11px; color:#52606d; background:#f2f4f7; border:1px solid #e3e8ee; border-radius:8px; padding:6px 9px; margin-bottom:10px; }
+.at-src{ display:inline-block; font-size:10px; font-weight:700; padding:1px 6px; border-radius:5px; white-space:nowrap; vertical-align:middle; }
+.at-src.ad{ background:#e6f4ea; color:#1f6d43; }   /* de ALLDATA */
+.at-src.ai{ background:#fde8d5; color:#9a5b00; }   /* sugerencia IA */
+.at-li{ padding:7px 2px; border-top:1px solid #eef1f5; font-size:13px; }
+.at-li:first-child{ border-top:none; }
+.at-rank{ width:26px; text-align:center; font-weight:700; color:#13538b; vertical-align:top; }

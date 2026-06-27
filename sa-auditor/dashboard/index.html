@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SA Auditor — AutoRx Center</title>
+<style>
+  :root{
+    --navy:#12233d; --navy2:#1c3357; --teal:#16b6a8; --teal-d:#0e8c81;
+    --ink:#1f2933; --muted:#6b7787; --line:#e3e8ee; --bg:#eef1f5;
+    --high:#c0392b; --high-bg:#fdecea; --med:#c87f00; --med-bg:#fff6e0; --low:#5b5fc7; --low-bg:#eef0fb;
+    --ok:#1f9d57;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:14px;line-height:1.45}
+  header{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;padding:16px 22px;
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0;font-weight:700}
+  header .sub{font-size:12px;opacity:.8}
+  header .spacer{flex:1}
+  .btn{background:var(--teal);color:#04201d;border:none;border-radius:8px;padding:8px 14px;
+    font-size:13px;font-weight:700;cursor:pointer}
+  .btn:hover{background:var(--teal-d);color:#fff}
+  .wrap{max-width:1180px;margin:0 auto;padding:18px}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .kpi .n{font-size:26px;font-weight:800}
+  .kpi .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+  .kpi.alert .n{color:var(--high)}
+
+  h2{font-size:14px;margin:18px 0 10px;color:var(--navy)}
+  .sa-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:8px}
+  .sa-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 15px;cursor:pointer;transition:.12s}
+  .sa-card:hover{border-color:var(--teal);box-shadow:0 3px 12px rgba(20,40,70,.08)}
+  .sa-card.active{border-color:var(--teal);box-shadow:0 0 0 2px var(--teal) inset}
+  .sa-card .nm{font-weight:700;margin-bottom:4px}
+  .sa-card .ln{font-size:12px;color:var(--muted)}
+  .sa-card .big{font-size:22px;font-weight:800;color:var(--high)}
+  .sa-card .big.zero{color:var(--ok)}
+
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0}
+  .controls select,.controls input{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff}
+  .controls label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px}
+
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
+  th{background:#f7f9fb;font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);cursor:pointer}
+  tr:last-child td{border-bottom:none}
+  td.ro{font-weight:700;white-space:nowrap}
+  td.ro a{color:var(--navy);text-decoration:none}
+  td.ro a:hover{text-decoration:underline}
+  .age{color:var(--muted);font-size:12px}
+  .status-pill{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:#e7ecf2;color:#3e4c59;white-space:nowrap}
+
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap}
+  .chip.high{background:var(--high-bg);color:var(--high)}
+  .chip.med{background:var(--med-bg);color:var(--med)}
+  .chip.low{background:var(--low-bg);color:var(--low)}
+  .chip.ok{background:#e6f4ea;color:var(--ok)}
+
+  .msg{padding:30px;text-align:center;color:var(--muted)}
+  .foot{font-size:11.5px;color:var(--muted);margin-top:14px;text-align:center}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid #cdd5df;border-top-color:var(--teal);
+    border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🔧 SA Auditor — AutoRx Center</h1>
+    <div class="sub">Repair Orders activos (Estimate / Repair in Progress) · datos de Tekmetric vía Supabase</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="sub" id="updated"></div>
+  <button class="btn" id="refresh">↻ Refrescar</button>
+</header>
+
+<div class="wrap">
+  <div class="kpis" id="kpis"></div>
+
+  <h2>Por Service Advisor</h2>
+  <div class="sa-cards" id="saCards"></div>
+
+  <div class="controls">
+    <label>SA:
+      <select id="fSA"><option value="">Todos</option></select>
+    </label>
+    <label>Problema:
+      <select id="fIssue"><option value="">Todos</option></select>
+    </label>
+    <label>Buscar RO#: <input id="fSearch" placeholder="Ej: 70253" size="10"></label>
+    <label><input type="checkbox" id="fOnly" checked> Solo con problemas</label>
+    <span id="count" class="sub" style="color:var(--muted)"></span>
+  </div>
+
+  <table id="tbl">
+    <thead>
+      <tr>
+        <th data-sort="issues">Problemas</th>
+        <th data-sort="ro_number">RO#</th>
+        <th>Vehículo</th>
+        <th data-sort="service_advisor">Service Advisor</th>
+        <th data-sort="status">Estado</th>
+        <th data-sort="age">Antigüedad</th>
+        <th>Qué falta</th>
+      </tr>
+    </thead>
+    <tbody id="rows"><tr><td colspan="7" class="msg"><span class="spin"></span> Cargando…</td></tr></tbody>
+  </table>
+
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+/* ===================== CONFIG ===================== */
+const SUPABASE_URL = "https://kiziudyqjnihywbmgsqn.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtpeml1ZHlxam5paHl3Ym1nc3FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MDUxNjcsImV4cCI6MjA4OTM4MTE2N30.4kcyhd9_4Pn_MFAJnEZ9E2dwznXCIpGaac_Kb-Yd_vo";
+// Opcional: plantilla para abrir el RO en Tekmetric. Usa {ro_id} o {ro_number}.
+// Cuando confirmes el formato real, pégalo aquí (ej: "https://shop.tekmetric.com/.../{ro_id}").
+const TEKMETRIC_RO_URL = "https://shop.tekmetric.com/admin/shop/6769/repair-orders?search={ro_number}";
+/* ================================================= */
+
+const ISSUES = [
+  { key:"missing_vin",            label:"Sin VIN",                sev:"high" },
+  { key:"auth_job_without_tech",  label:"Autorizado sin técnico", sev:"high" },
+  { key:"auth_job_without_labor", label:"Autorizado sin labor",   sev:"high" },
+  { key:"part_without_price",     label:"Parte sin venta",        sev:"high" },
+  { key:"part_without_cost",      label:"Parte sin costo",        sev:"med"  },
+  { key:"part_without_qty",       label:"Parte sin cantidad",     sev:"med"  },
+  { key:"missing_miles",          label:"Sin millas",             sev:"med"  },
+  { key:"no_authorized_jobs",     label:"Sin jobs autorizados",   sev:"low"  },
+];
+const SEV_RANK = { high:3, med:2, low:1 };
+
+let RO = [], ROLL = [], sortKey = "issues", sortDir = -1;
+
+async function api(view, qs){
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${view}?${qs}`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY }
+  });
+  if (!r.ok) throw new Error("HTTP " + r.status + " — " + (await r.text()).slice(0,200));
+  return r.json();
+}
+
+function issuesOf(row){ return ISSUES.filter(i => row[i.key] === true); }
+function ageDays(iso){ if(!iso) return null; return Math.floor((Date.now() - new Date(iso).getTime())/86400000); }
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+async function load(){
+  document.getElementById("rows").innerHTML = '<tr><td colspan="7" class="msg"><span class="spin"></span> Cargando…</td></tr>';
+  try{
+    [ROLL, RO] = await Promise.all([
+      api("sa_rollup", "select=*"),
+      api("ro_audit", "select=*")
+    ]);
+    RO.forEach(r => { r._issues = issuesOf(r); r._age = ageDays(r.ro_created_at); });
+    document.getElementById("updated").textContent = "Actualizado " + new Date().toLocaleTimeString();
+    renderKpis(); renderCards(); fillFilters(); renderRows();
+  }catch(e){
+    document.getElementById("rows").innerHTML =
+      '<tr><td colspan="7" class="msg">No se pudo cargar.<br><b>'+esc(e.message)+'</b><br><br>'+
+      'Si dice "permission denied", avísame y ajusto los permisos de lectura.</td></tr>';
+  }
+}
+
+function renderKpis(){
+  const active = RO.length;
+  const withIssues = RO.filter(r => r._issues.length).length;
+  const high = RO.filter(r => r._issues.some(i=>i.sev==="high")).length;
+  const sas = ROLL.length;
+  const k = [
+    {l:"ROs activos", n:active},
+    {l:"Con problemas", n:withIssues, alert:withIssues>0},
+    {l:"Con problema grave", n:high, alert:high>0},
+    {l:"Service Advisors", n:sas},
+  ];
+  document.getElementById("kpis").innerHTML = k.map(x =>
+    `<div class="kpi ${x.alert?'alert':''}"><div class="n">${x.n}</div><div class="l">${x.l}</div></div>`).join("");
+}
+
+let saFilter = "";
+function renderCards(){
+  const rows = [...ROLL].sort((a,b)=> b.ros_with_issues - a.ros_with_issues);
+  document.getElementById("saCards").innerHTML = rows.map(s => {
+    const zero = s.ros_with_issues === 0;
+    return `<div class="sa-card ${saFilter===s.service_advisor?'active':''}" data-sa="${esc(s.service_advisor)}">
+      <div class="nm">${esc(s.service_advisor)}</div>
+      <div class="big ${zero?'zero':''}">${s.ros_with_issues}</div>
+      <div class="ln">de ${s.active_ros} ROs activos con problemas</div>
+    </div>`;
+  }).join("");
+  document.querySelectorAll(".sa-card").forEach(c => c.addEventListener("click", () => {
+    const sa = c.dataset.sa;
+    saFilter = (saFilter===sa) ? "" : sa;
+    document.getElementById("fSA").value = saFilter;
+    renderCards(); renderRows();
+  }));
+}
+
+function fillFilters(){
+  const sel = document.getElementById("fSA");
+  const cur = sel.value;
+  const names = [...new Set(ROLL.map(s=>s.service_advisor))].sort();
+  sel.innerHTML = '<option value="">Todos</option>' + names.map(n=>`<option>${esc(n)}</option>`).join("");
+  sel.value = cur;
+  const si = document.getElementById("fIssue");
+  if (si.options.length <= 1) si.innerHTML = '<option value="">Todos</option>' + ISSUES.map(i=>`<option value="${i.key}">${i.label}</option>`).join("");
+}
+
+function currentRows(){
+  const sa = document.getElementById("fSA").value;
+  const issue = document.getElementById("fIssue").value;
+  const q = document.getElementById("fSearch").value.trim();
+  const only = document.getElementById("fOnly").checked;
+  let rows = RO.filter(r=>{
+    if (sa && r.service_advisor !== sa) return false;
+    if (issue && r[issue] !== true) return false;
+    if (q && !String(r.ro_number||"").includes(q)) return false;
+    if (only && r._issues.length === 0) return false;
+    return true;
+  });
+  rows.sort((a,b)=>{
+    let av,bv;
+    if (sortKey==="issues"){ av=worst(a); bv=worst(b); }
+    else if (sortKey==="age"){ av=a._age??-1; bv=b._age??-1; }
+    else { av=a[sortKey]; bv=b[sortKey]; }
+    if (av<bv) return -1*sortDir; if (av>bv) return 1*sortDir; return 0;
+  });
+  return rows;
+}
+function worst(r){ return r._issues.reduce((m,i)=>Math.max(m,SEV_RANK[i.sev]),0)*100 + r._issues.length; }
+
+function renderRows(){
+  saFilter = document.getElementById("fSA").value;
+  const rows = currentRows();
+  document.getElementById("count").textContent = rows.length + " RO(s)";
+  if (!rows.length){ document.getElementById("rows").innerHTML = '<tr><td colspan="7" class="msg">Sin resultados con estos filtros. 🎉</td></tr>'; return; }
+  document.getElementById("rows").innerHTML = rows.map(r=>{
+    const chips = r._issues.length
+      ? r._issues.map(i=>`<span class="chip ${i.sev}">${i.label}</span>`).join("")
+      : '<span class="chip ok">✓ Completo</span>';
+    const roCell = TEKMETRIC_RO_URL
+      ? `<a href="${TEKMETRIC_RO_URL.replace("{ro_id}",r.ro_id).replace("{ro_number}",r.ro_number)}" target="_blank">#${esc(r.ro_number)}</a>`
+      : `#${esc(r.ro_number)}`;
+    const age = r._age==null ? "—" : (r._age===0 ? "hoy" : r._age+" d");
+    return `<tr>
+      <td><b style="color:${r._issues.some(i=>i.sev==='high')?'var(--high)':'var(--muted)'}">${r._issues.length}</b></td>
+      <td class="ro">${roCell}</td>
+      <td>${esc(r.vehicle||"—")}</td>
+      <td>${esc(r.service_advisor)}</td>
+      <td><span class="status-pill">${esc(r.status)}</span></td>
+      <td class="age">${age}</td>
+      <td><div class="chips">${chips}</div></td>
+    </tr>`;
+  }).join("");
+}
+
+document.getElementById("refresh").addEventListener("click", load);
+["fSA","fIssue","fOnly"].forEach(id=>document.getElementById(id).addEventListener("change", renderRows));
+document.getElementById("fSearch").addEventListener("input", renderRows);
+document.querySelectorAll("th[data-sort]").forEach(th=>th.addEventListener("click", ()=>{
+  const k = th.dataset.sort;
+  if (sortKey===k) sortDir*=-1; else { sortKey=k; sortDir = (k==="issues"||k==="age")?-1:1; }
+  renderRows();
+}));
+document.getElementById("foot").textContent = "Datos de solo lectura desde Supabase (tekmetric-integration C). Verifica siempre en Tekmetric antes de actuar.";
+load();
+</script>
+</body>
+</html>

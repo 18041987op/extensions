@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Asistente de Taller — Diagnóstico ALLDATA",
+  "version": "0.1.0",
+  "description": "Traduce al español y filtra/resalta la información en pantalla para que los técnicos diagnostiquen más rápido. Funciona 100% en el navegador.",
+  "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": ["*://*.alldata.com/*"],
+  "action": {
+    "default_title": "Asistente de Taller",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.alldata.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

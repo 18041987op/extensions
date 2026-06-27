@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Asistente de Taller IA — Ficha de Trabajo ALLDATA",
+  "version": "0.2.0",
+  "description": "Lee el procedimiento de ALLDATA y, con la IA de bajo costo que tú conectes, genera una ficha de trabajo: labor time, partes, fluidos, specs, pasos y alertas de TSB.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "*://*.alldata.com/*",
+    "https://api.deepseek.com/*",
+    "https://api.openai.com/*",
+    "https://openrouter.ai/*",
+    "https://api.anthropic.com/*",
+    "https://api.groq.com/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "options_page": "options.html",
+  "action": {
+    "default_title": "Asistente de Taller IA",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.alldata.com/*"],
+      "js": ["content.js"],
+      "css": ["ficha.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

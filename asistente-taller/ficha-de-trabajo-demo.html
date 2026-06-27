@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Asistente de Taller — Ficha de Trabajo (Demo)</title>
+<style>
+  :root{
+    --blue:#13538b; --blue-dark:#0e3f6b; --ink:#1f2933; --muted:#6b7787;
+    --line:#e3e8ee; --bg:#eef1f5; --green:#1f9d57; --amber:#c87f00;
+    --amber-bg:#fff6e0; --red:#c0392b; --red-bg:#fdecea; --chip:#eaf2fb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:15px;line-height:1.5}
+  .wrap{max-width:880px;margin:0 auto;padding:18px 16px 60px}
+
+  /* Banner demo */
+  .demo-banner{background:#fff8e1;border:1px solid #f0d98a;color:#7a5b00;
+    padding:9px 14px;border-radius:8px;font-size:13px;margin-bottom:16px}
+
+  /* Encabezado ficha */
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;
+    overflow:hidden;box-shadow:0 4px 20px rgba(20,40,70,.06);margin-bottom:16px}
+  .job-head{background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;padding:18px 20px}
+  .job-head .veh{font-size:13px;opacity:.85;letter-spacing:.3px}
+  .job-head h1{margin:4px 0 0;font-size:22px}
+  .job-head .src{font-size:12px;opacity:.8;margin-top:6px}
+  .job-head a{color:#cfe4fb}
+
+  /* Tira de resumen */
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line)}
+  .summary .cell{background:#fff;padding:14px 16px;text-align:center}
+  .summary .k{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .summary .v{font-size:20px;font-weight:700;margin-top:3px}
+  .summary .v small{font-size:12px;font-weight:500;color:var(--muted)}
+
+  /* Secciones */
+  .sec{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:14px;overflow:hidden}
+  .sec > h2{margin:0;font-size:15px;padding:13px 18px;background:#f7f9fb;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:8px}
+  .sec .body{padding:16px 18px}
+  .ic{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;
+    font-size:13px;color:#fff;flex:0 0 auto}
+  .ic.b{background:var(--blue)} .ic.g{background:var(--green)} .ic.a{background:var(--amber)}
+  .ic.r{background:var(--red)} .ic.p{background:#7c5cbf}
+
+  /* Alertas */
+  .alert{border-radius:10px;padding:12px 14px;margin-bottom:10px;font-size:14px;display:flex;gap:10px;align-items:flex-start}
+  .alert:last-child{margin-bottom:0}
+  .alert.warn{background:var(--amber-bg);border:1px solid #f0d98a}
+  .alert.stop{background:var(--red-bg);border:1px solid #f0b6ae}
+  .alert b{display:block;margin-bottom:2px}
+  .alert .tag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:2px 7px;border-radius:5px}
+  .alert.warn .tag{background:var(--amber);color:#fff}
+  .alert.stop .tag{background:var(--red);color:#fff}
+  .alert a{color:var(--blue);font-weight:600}
+
+  /* Tablas */
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:600}
+  tr:last-child td{border-bottom:none}
+  td .ej{font-size:11px;color:var(--amber);font-weight:600}
+  .src-link{font-size:12px;color:var(--blue);text-decoration:none;white-space:nowrap}
+  .src-link:hover{text-decoration:underline}
+
+  /* Partes: por qué */
+  .why{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .pill{display:inline-block;background:var(--chip);color:var(--blue);border-radius:20px;
+    padding:2px 9px;font-size:11.5px;font-weight:600;margin-right:5px}
+
+  /* Pasos checklist */
+  ol.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+  ol.steps > li{position:relative;padding:12px 12px 12px 46px;border-bottom:1px solid var(--line)}
+  ol.steps > li:last-child{border-bottom:none}
+  ol.steps > li::before{counter-increment:s;content:counter(s);position:absolute;left:12px;top:12px;
+    width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;font-size:12px;font-weight:700;
+    display:flex;align-items:center;justify-content:center}
+  ol.steps > li.done{opacity:.55}
+  ol.steps > li.done .txt{text-decoration:line-through}
+  ol.steps .chk{position:absolute;right:12px;top:13px;width:20px;height:20px;cursor:pointer;accent-color:var(--green)}
+  ol.steps .step-warn{margin-top:8px;background:var(--amber-bg);border-left:3px solid var(--amber);
+    padding:7px 10px;border-radius:6px;font-size:13px}
+  ol.steps .step-warn.stop{background:var(--red-bg);border-left-color:var(--red)}
+  ol.steps .deps{margin-top:6px;font-size:12.5px;color:var(--muted)}
+  .txt b{color:var(--blue)}
+
+  .legend{font-size:12px;color:var(--muted);margin-top:18px;text-align:center}
+  .legend .ej{color:var(--amber);font-weight:600}
+  .foot-note{font-size:12.5px;color:var(--muted);padding:10px 18px;background:#f7f9fb;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="demo-banner">
+    <b>Demostración con datos de ejemplo.</b> Así se vería la herramienta. En la versión real, todos estos
+    valores se extraen automáticamente de la página de ALLDATA que el técnico tiene abierta. Los datos marcados
+    <span style="color:#c87f00;font-weight:600">ej.</span> son ilustrativos.
+  </div>
+
+  <!-- ===== FICHA ===== -->
+  <div class="card">
+    <div class="job-head">
+      <div class="veh">2015 Ford Truck F-150 4WD · V6 2.7L Turbo (EcoBoost) · VIN 1FTEW1EP8FK</div>
+      <h1>Cadena de distribución — Remover y reemplazar</h1>
+      <div class="src">Fuente: ALLDATA › Engine › Timing Components › Timing Chain &nbsp;·&nbsp;
+        <a href="#">Abrir procedimiento original ↗</a></div>
+    </div>
+    <div class="summary">
+      <div class="cell"><div class="k">Labor Time</div><div class="v">11.3 <small>hrs <span class="ej">ej.</span></small></div></div>
+      <div class="cell"><div class="k">Dificultad</div><div class="v">Alta</div></div>
+      <div class="cell"><div class="k">Partes</div><div class="v">9 <small>ítems</small></div></div>
+      <div class="cell"><div class="k">Fluidos</div><div class="v">2 <small>tipos</small></div></div>
+    </div>
+    <div class="foot-note">Labor time tomado de <b>Parts &amp; Labor</b> de ALLDATA para este motor/año.
+      Las cantidades de partes y fluidos se deducen leyendo el procedimiento completo y sus referencias.</div>
+  </div>
+
+  <!-- ===== ALERTAS / TSB ===== -->
+  <div class="sec">
+    <h2><span class="ic r">!</span> Antes de empezar — revisar primero</h2>
+    <div class="body">
+      <div class="alert stop">
+        <span class="tag">TSB</span>
+        <div>
+          <b>Revisa boletines antes de reemplazar partes.</b>
+          Hay TSB conocidos sobre ruido de cadena / cam phasers en el 2.7L EcoBoost. Si el motivo del trabajo
+          es un código o ruido, confirma el diagnóstico contra el boletín antes de pedir partes.
+          <a href="#">Ver TSBs relacionados en ALLDATA ↗</a> <span class="ej">(ej.)</span>
+        </div>
+      </div>
+      <div class="alert warn">
+        <span class="tag">Aviso</span>
+        <div>
+          <b>Bomba de agua interna.</b> En el 2.7L la bomba de agua es interna y la mueve la cadena. Con la
+          tapa frontal afuera queda accesible — muchos talleres la reemplazan en este mismo trabajo para no
+          repetir labor. Considera cotizarla. <a href="#">Ver Water Pump ↗</a> <span class="ej">(ej.)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PARTES (deducidas por dependencias) ===== -->
+  <div class="sec">
+    <h2><span class="ic b">⚙</span> Partes necesarias <span style="font-weight:400;color:var(--muted);font-size:12px">— deducidas del procedimiento</span></h2>
+    <div class="body" style="padding:0">
+      <table>
+        <thead><tr><th>Parte</th><th>Por qué la necesitas</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>Kit cadena distribución</b><br><span class="why">Cadenas RH y LH</span></td>
+            <td>Es la parte principal del trabajo.</td>
+            <td><a class="src-link" href="#">Parts &amp; Labor ↗</a></td>
+          </tr>
+          <tr>
+            <td><b>Tensores de cadena ×2</b></td>
+            <td><span class="pill">paso 4</span>Se remueven RH y LH tensioners; ALLDATA recomienda reemplazarlos.</td>
+            <td><a class="src-link" href="#">Ver paso ↗</a></td>
+          </tr>
+          <tr>
+            <td><b>Brazos / guías de tensor</b></td>
+            <td><span class="pill">paso 5</span>Se desmontan junto con los tensores.</td>
+            <td><a class="src-link" href="#">Ver paso ↗</a></td>
+          </tr>
+          <tr>
+            <td><b>Junta / sellador tapa frontal</b><br><span class="why">RTV + sello cigüeñal</span></td>
+            <td><span class="pill">dependencia</span>Para llegar a la cadena hay que quitar la <b>tapa frontal</b> → requiere sellador nuevo al rearmar.</td>
+            <td><a class="src-link" href="#">Engine Front Cover ↗</a></td>
+          </tr>
+          <tr>
+            <td><b>Refrigerante (coolant)</b></td>
+            <td><span class="pill">dependencia</span>Quitar la tapa frontal obliga a <b>drenar el refrigerante</b> (bomba interna).</td>
+            <td><a class="src-link" href="#">Cooling System ↗</a></td>
+          </tr>
+          <tr>
+            <td><b>Aceite de motor + filtro</b></td>
+            <td><span class="pill">dependencia</span>El trabajo abre el frente del motor; se reemplaza aceite y filtro al cerrar.</td>
+            <td><a class="src-link" href="#">Specs ↗</a></td>
+          </tr>
+          <tr>
+            <td><b>Bomba de agua</b> <span class="ej">(opcional)</span></td>
+            <td>Queda accesible con la tapa afuera. Recomendado reemplazar para no repetir labor.</td>
+            <td><a class="src-link" href="#">Water Pump ↗</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== FLUIDOS ===== -->
+  <div class="sec">
+    <h2><span class="ic g">💧</span> Fluidos — tipo y cantidad</h2>
+    <div class="body" style="padding:0">
+      <table>
+        <thead><tr><th>Fluido</th><th>Especificación</th><th>Cantidad</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>Refrigerante</b></td>
+            <td>Motorcraft Orange (Ford WSS-M97B44-D2) <span class="ej">ej.</span></td>
+            <td>≈ 11.6 qt <span class="ej">ej.</span></td>
+            <td><a class="src-link" href="#">Capacities ↗</a></td>
+          </tr>
+          <tr>
+            <td><b>Aceite de motor</b></td>
+            <td>SAE 5W-30 sintético (Motorcraft) <span class="ej">ej.</span></td>
+            <td>6.0 qt c/filtro <span class="ej">ej.</span></td>
+            <td><a class="src-link" href="#">Capacities ↗</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== SPECS ===== -->
+  <div class="sec">
+    <h2><span class="ic p">🔧</span> Especificaciones de torque</h2>
+    <div class="body" style="padding:0">
+      <table>
+        <thead><tr><th>Sujetador</th><th>Torque</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>Perno polea cigüeñal <span class="why">(usar el original)</span></td><td><b>Etapas — ver nota</b> <span class="ej">ej.</span></td><td><a class="src-link" href="#">Spec ↗</a></td></tr>
+          <tr><td>Pernos tensor de cadena</td><td><b>89 in-lb</b> <span class="ej">ej.</span></td><td><a class="src-link" href="#">Spec ↗</a></td></tr>
+          <tr><td>Pernos tapa frontal</td><td><b>18 ft-lb</b> <span class="ej">ej.</span></td><td><a class="src-link" href="#">Spec ↗</a></td></tr>
+          <tr><td>Tuercas de rueda</td><td><b>150 ft-lb</b> <span class="ej">ej.</span></td><td><a class="src-link" href="#">Spec ↗</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== PASOS ===== -->
+  <div class="sec">
+    <h2><span class="ic b">≣</span> Pasos del procedimiento <span style="font-weight:400;color:var(--muted);font-size:12px">— marca conforme avanzas</span></h2>
+    <div class="body" style="padding:0">
+      <ol class="steps">
+        <li>
+          <input type="checkbox" class="chk">
+          <div class="txt">Remover la <b>tapa frontal del motor</b> (Engine Front Cover).</div>
+          <div class="deps">↳ Esta sub-tarea requiere: drenar refrigerante, quitar accesorios del frente.
+            <a class="src-link" href="#">Abrir sub-procedimiento ↗</a></div>
+        </li>
+        <li>
+          <input type="checkbox" class="chk">
+          <div class="txt">Rotar el cigüeñal usando <b>solo el perno original</b> de la polea.</div>
+          <div class="step-warn stop"><b>⚠ NOTICE:</b> Hacerlo en otra dirección o con otro perno puede dañar
+            el cigüeñal y causar falla del motor.</div>
+        </li>
+        <li>
+          <input type="checkbox" class="chk">
+          <div class="txt">Poner a tiempo: rotar cigüeñal en sentido horario, posicionar la chaveta del sprocket a las <b>11 en punto</b>.</div>
+          <div class="step-warn"><b>⚠ Aviso:</b> Las unidades VCT tienen 2 marcas (triángulo y círculo).
+            Para el lado <b>RH</b> se usan las marcas de <b>triángulo</b>: intake a las 2:00 y exhaust a las 11:00.
+            Si ves los círculos, gira el cigüeñal una vuelta completa (360°).</div>
+        </li>
+        <li>
+          <input type="checkbox" class="chk">
+          <div class="txt">Remover los pernos y el <b>tensor de cadena RH</b>.</div>
+        </li>
+        <li>
+          <input type="checkbox" class="chk">
+          <div class="txt">Remover el <b>brazo del tensor de cadena RH</b>.</div>
+        </li>
+        <li>
+          <input type="checkbox" class="chk">
+          <div class="txt">Repetir desmontaje para el lado <b>LH</b> y retirar las cadenas.</div>
+        </li>
+      </ol>
+    </div>
+    <div class="foot-note">Los pasos, avisos (NOTICE/CAUTION) y dependencias se leen del texto de ALLDATA y se
+      ordenan en lista. Cada paso conserva un enlace a su origen.</div>
+  </div>
+
+  <p class="legend">
+    Maqueta · Asistente de Taller · datos marcados <span class="ej">ej.</span> son ilustrativos —
+    la versión real los extrae en vivo de ALLDATA.
+  </p>
+
+</div>
+
+<script>
+  // Tachar pasos completados (solo demo de la interacción)
+  document.querySelectorAll('ol.steps .chk').forEach(function(c){
+    c.addEventListener('change', function(){
+      c.closest('li').classList.toggle('done', c.checked);
+    });
+  });
+</script>
+</body>
+</html>

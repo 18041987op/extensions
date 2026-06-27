@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<style>
+  body{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;background:#eef1f5;color:#1f2933;margin:0;padding:24px;font-size:14px}
+  .card{max-width:520px;margin:0 auto;background:#fff;border:1px solid #e3e8ee;border-radius:14px;overflow:hidden}
+  .head{background:linear-gradient(135deg,#12233d,#1c3357);color:#fff;padding:16px 20px}
+  .head h1{margin:0;font-size:17px}
+  .head p{margin:4px 0 0;font-size:12px;opacity:.85}
+  .body{padding:20px}
+  label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.3px;color:#6b7787;margin:14px 0 6px;font-weight:600}
+  input,select{width:100%;padding:9px 11px;border:1px solid #cdd5df;border-radius:8px;font-size:14px}
+  .hint{font-size:12px;color:#6b7787;margin-top:5px}
+  button{margin-top:18px;width:100%;padding:11px;border:none;border-radius:9px;background:#16b6a8;color:#04201d;font-weight:700;font-size:15px;cursor:pointer}
+  button:hover{background:#0e8c81;color:#fff}
+  .status{margin-top:10px;font-size:13px;text-align:center;min-height:18px}
+  .ok{color:#1f9d57;font-weight:600}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="head"><h1>🧾 SA Auditor — Ajustes</h1><p>La extensión detecta tu usuario de Tekmetric automáticamente. Aquí solo defines respaldos.</p></div>
+  <div class="body">
+    <label>Identidad (respaldo si la auto-detección falla)</label>
+    <select id="identity"><option value="">Auto-detectar de Tekmetric</option><option value="__ADMIN__">Soy Admin (ver todo)</option></select>
+    <div class="hint">Déjalo en "Auto-detectar" salvo que el panel no te reconozca. También puedes cambiarlo desde el panel con "cambiar".</div>
+
+    <label>Nombres de admin (separados por coma)</label>
+    <input id="admins" placeholder="Osman Perez" />
+    <div class="hint">Quien coincida con estos nombres ve el tablero completo. Los demás ven solo sus ROs.</div>
+
+    <label>Selector CSS del usuario (avanzado, opcional)</label>
+    <input id="selector" placeholder="(vacío = auto)" />
+    <div class="hint">Si la auto-detección no agarra tu nombre, aquí se puede afinar el selector. Osman puede ayudarte con esto.</div>
+
+    <button id="save">Guardar</button>
+    <div class="status" id="status"></div>
+  </div>
+</div>
+<script src="options.js"></script>
+</body>
+</html>

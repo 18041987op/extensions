@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Asistente de Taller IA — Configuración</title>
+<style>
+  body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1f2933;
+    background:#eef1f5;margin:0;padding:30px 16px;font-size:15px;line-height:1.5}
+  .card{max-width:560px;margin:0 auto;background:#fff;border:1px solid #e3e8ee;
+    border-radius:14px;box-shadow:0 4px 20px rgba(20,40,70,.06);overflow:hidden}
+  .head{background:linear-gradient(135deg,#13538b,#0e3f6b);color:#fff;padding:18px 22px}
+  .head h1{margin:0;font-size:18px}
+  .head p{margin:4px 0 0;font-size:13px;opacity:.85}
+  .body{padding:22px}
+  label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.4px;
+    color:#6b7787;margin:16px 0 6px;font-weight:600}
+  input,select{width:100%;padding:9px 11px;border:1px solid #cdd5df;border-radius:8px;
+    font-size:14px;background:#fff;color:#1f2933}
+  .hint{font-size:12.5px;color:#6b7787;margin-top:5px}
+  .hint a{color:#13538b}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .btn{margin-top:22px;width:100%;padding:11px;border:none;border-radius:9px;background:#13538b;
+    color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+  .btn:hover{background:#0e3f6b}
+  .status{margin-top:12px;font-size:13px;text-align:center;min-height:18px}
+  .status.ok{color:#1f9d57;font-weight:600}
+  .status.err{color:#c0392b;font-weight:600}
+  .presets{background:#f7f9fb;border:1px solid #e3e8ee;border-radius:10px;padding:12px 14px;margin-top:6px;font-size:13px}
+  .presets b{color:#13538b}
+  .presets table{width:100%;border-collapse:collapse;margin-top:6px}
+  .presets td{padding:4px 6px;border-bottom:1px solid #eef1f5;font-size:12.5px}
+  .presets tr:last-child td{border-bottom:none}
+  .priv{background:#eaf7ef;border:1px solid #b6e2c8;color:#1f6d43;border-radius:9px;
+    padding:10px 12px;font-size:12.5px;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="head">
+    <h1>🔧 Configuración de la IA</h1>
+    <p>Conecta una IA de bajo costo. Tú pones tu propia llave (API key); el taller paga solo por lo que usa.</p>
+  </div>
+  <div class="body">
+
+    <label for="provider">Proveedor</label>
+    <select id="provider">
+      <option value="openai">Compatible con OpenAI (OpenAI, OpenRouter, DeepSeek, Groq, Together…)</option>
+      <option value="anthropic">Anthropic (Claude)</option>
+    </select>
+    <div class="hint">"Compatible con OpenAI" sirve para casi cualquier proveedor económico: solo cambia la URL base y el modelo.</div>
+
+    <div id="baseUrlWrap">
+      <label for="baseUrl">URL base de la API</label>
+      <input id="baseUrl" placeholder="https://api.openai.com/v1" />
+      <div class="hint">Ejemplos: OpenAI <code>https://api.openai.com/v1</code> · OpenRouter <code>https://openrouter.ai/api/v1</code> · DeepSeek <code>https://api.deepseek.com/v1</code></div>
+    </div>
+
+    <label for="model">Modelo</label>
+    <input id="model" placeholder="gpt-4o-mini" />
+
+    <label for="apiKey">API key</label>
+    <input id="apiKey" type="password" placeholder="sk-..." />
+    <div class="hint">Se guarda solo en este navegador (almacenamiento local de la extensión). No se comparte.</div>
+
+    <label for="lang">Idioma de la ficha</label>
+    <input id="lang" value="español" />
+
+    <div class="presets">
+      <b>Opciones económicas sugeridas</b> (junio 2026 — verifica precios actuales):
+      <table>
+        <tr><td>OpenAI</td><td><code>gpt-4o-mini</code></td><td>muy barato, buena calidad</td></tr>
+        <tr><td>DeepSeek</td><td><code>deepseek-chat</code></td><td>de los más baratos</td></tr>
+        <tr><td>Anthropic</td><td><code>claude-haiku-4-5-20251001</code></td><td>rápido y económico</td></tr>
+      </table>
+    </div>
+
+    <button class="btn" id="save">Guardar y probar conexión</button>
+    <div class="status" id="status"></div>
+
+    <div class="priv">🔒 <b>Privacidad:</b> al generar una ficha, el texto del procedimiento de ALLDATA se envía
+      al proveedor de IA que elijas para procesarlo. Confirma con ALLDATA que aceptan este uso antes de
+      desplegarlo en el taller (ver la nota de viabilidad).</div>
+  </div>
+</div>
+<script src="options.js"></script>
+</body>
+</html>
