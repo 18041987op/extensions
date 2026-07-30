@@ -9,12 +9,14 @@
 --   REPAIR_IN_PROGRESS  -> Work In Progress (obligatorio: todo completo)
 --   COMPLETE            -> Completed         (obligatorio: todo completo)
 --
--- Estados de un JOB dentro del RO:
---   selected=false           -> "apagado" (opción rechazada): SE EXCLUYE de la auditoría.
---   selected=true, auth=false -> creado, pendiente de aprobación.
---   authorized=true          -> aprobado (mano/pulgar verde).
--- Las partes (tekmetric_job_line_items.job_tekmetric_id) se ligan a su job, así
--- que un job apagado ya no contamina las banderas de partes del RO.
+-- Estados de un JOB dentro del RO (se derivan de authorized / selected / authorized_date):
+--   authorized=true                                  -> APROBADO (pulgar verde). Se audita.
+--   authorized=false, authorized_date IS NOT NULL    -> DECLINADO (cliente rechazó). NO se audita.
+--   authorized=false, authorized_date IS NULL, sel=t -> PENDIENTE (sin aprobar). NO se audita.
+--   selected=false                                   -> APAGADO (opción rechazada). Advisory.
+-- La auditoría obligatoria (banderas + problem_jobs activos) corre SOLO sobre jobs
+-- APROBADOS. Las partes (tekmetric_job_line_items.job_tekmetric_id) se ligan a su job,
+-- así que jobs declinados/pendientes/apagados no contaminan las banderas del RO.
 --
 -- Notas de datos:
 --   * tekmetric_customers.address es jsonb a veces doble-codificado (string).
@@ -54,21 +56,24 @@ jobx as (
   group by j.repair_order_id, j.tekmetric_id, j.name, j.authorized, j.labor_hours, j.selected, j.technician_id
 ),
 jobagg as (
+  -- Auditoría obligatoria = SOLO jobs APROBADOS (j.authorized). Esto excluye:
+  --   · Declinados: authorized=false con authorized_date puesta (cliente rechazó).
+  --   · Pendientes: authorized=false sin authorized_date (recomendación sin aprobar).
+  -- Los apagados (selected=false) se reportan aparte como advisory.
   select repair_order_id,
-    count(*) filter (where sel)                as jobs_total,
-    count(*) filter (where sel and authorized) as jobs_authorized,
-    round(coalesce(sum(labor_hours) filter (where sel and authorized),0),2) as labor_hours,
-    -- banderas obligatorias: SOLO de jobs seleccionados (los apagados no contaminan)
-    bool_or(no_tech)  filter (where sel) as auth_job_without_tech,
-    bool_or(no_labor) filter (where sel) as auth_job_without_labor,
-    bool_or(no_price) filter (where sel) as part_without_price,
-    bool_or(no_cost)  filter (where sel) as part_without_cost,
-    bool_or(no_qty)   filter (where sel) as part_without_qty,
+    count(*) filter (where sel)        as jobs_total,
+    count(*) filter (where authorized) as jobs_authorized,
+    round(coalesce(sum(labor_hours) filter (where authorized),0),2) as labor_hours,
+    coalesce(bool_or(no_tech)  filter (where authorized),false) as auth_job_without_tech,
+    coalesce(bool_or(no_labor) filter (where authorized),false) as auth_job_without_labor,
+    coalesce(bool_or(no_price) filter (where authorized),false) as part_without_price,
+    coalesce(bool_or(no_cost)  filter (where authorized),false) as part_without_cost,
+    coalesce(bool_or(no_qty)   filter (where authorized),false) as part_without_qty,
     coalesce(bool_or((no_price or no_cost or no_qty)) filter (where not sel),false) as off_jobs_with_errors,
     coalesce(
-      jsonb_agg(jsonb_build_object('title', title, 'issues', to_jsonb(arr), 'off', not sel)
-                order by (not sel), title)
-      filter (where coalesce(array_length(arr,1),0) > 0),
+      jsonb_agg(jsonb_build_object('title', title, 'issues', to_jsonb(arr), 'off', not authorized)
+                order by (not authorized), title)
+      filter (where (authorized or not sel) and coalesce(array_length(arr,1),0) > 0),
       '[]'::jsonb
     ) as problem_jobs
   from (
