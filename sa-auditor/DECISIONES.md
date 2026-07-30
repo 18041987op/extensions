@@ -92,3 +92,91 @@ exponga inspections en su API). Pero cubre el caso principal de seguimiento:
   para poder usarlo como pseudo-issue en los filtros de la extensión.
 - `concern_no_estimate` se sumó a `ros_with_issues` del rollup (afecta el conteo de
   las tarjetas por SA del dashboard); `mandatory_issues` quedó igual.
+
+---
+
+## 2026-07-30 — 🐛 Jobs fantasma: el sync NUNCA marca jobs borrados (v0.8.1)
+
+### El bug (encontrado con el RO #70774)
+Thalia creó el job "Remove & Replace Camshaft" (4:40 PM) y lo **eliminó** 8 minutos
+después (4:48 PM, consta en el Activity de Tekmetric). Nuestra tabla `tekmetric_jobs`
+lo mantuvo **vivo**: el sync incremental pide "jobs modificados desde X", y un job
+borrado simplemente **deja de venir** en el API — nadie le pone `deleted_at`. La
+extensión mostraba $6,985 unsold cuando lo real era $4,582.73, y con el banner verde
+"looks complete": doble engaño al SA.
+
+**Magnitud medida ese día: 20 de 152 ROs activos** tenían jobs fantasma (deltas de
+$27 hasta $10k). No es un caso raro; pasa cada vez que un SA borra o re-crea un job.
+
+### Detección implementada (workaround honesto, no el fix de raíz)
+El RO **sí** se re-sincroniza al cambiar, y sus `labor_sub_total` / `parts_sub_total`
+excluyen jobs borrados Y declinados. Nueva columna `jobs_out_of_sync` en `ro_audit`:
+
+    suma de jobs "vivos" (selected=true y no declinados: authorized o sin
+    authorized_date) por RO  vs  subtotales del propio RO; difieren > $1 ⇒ true
+
+Hipótesis validada contra la flota: comparando contra TODOS los jobs había 42
+mismatches; excluyendo declinados quedaron 20 — los 20 son fantasmas reales (todos
+los deltas negativos = nuestra tabla suma de más). El umbral $1 absorbe redondeos.
+
+UI: chip rojo "Data out of sync" (extensión) / "Datos desincronizados" (dashboard),
+cuenta como issue obligatorio (un RO con datos no confiables jamás se muestra ✓),
+y la lista de unsold lleva advertencia de verificar en Tekmetric. `c_out_of_sync`
+en `sa_rollup`.
+
+También v0.8.1: el banner del RO actual ya **no dice "✓ looks complete" si hay
+unsold** — muestra ámbar "Documented, but 💰 $X pending approval — not done until
+it's sold (or declined)". (Feedback directo del dueño: el verde daba por bueno
+un RO con dinero sin vender.)
+
+### Fix de raíz PENDIENTE (vive en el servicio de sync, no en este repo)
+El sync corre fuera de Supabase (no hay edge functions en el proyecto C). Cuando se
+toque ese servicio: al sincronizar un RO modificado, pedir **todos** sus jobs
+(`GET /jobs?repairOrderId=X`) y poner `deleted_at=now()` a las filas locales de ese
+RO que ya no vengan en la respuesta. Con eso `jobs_out_of_sync` debería quedar
+siempre false y se puede degradar el chip a advisory.
+
+### Limpieza manual hecha
+Solo el caso probado: job 1226971044 ("Remove & Replace Camshaft", RO 70774) marcado
+`deleted_at` a mano el 2026-07-30 (evidencia: Activity log + delta exacto de
+$2,402.40 en labor). Los otros ~19 ROs quedaron con el chip de advertencia — NO
+adivinar cuál job es el fantasma; el fix de sync los limpiará.
+
+---
+
+## 2026-07-30 — 🚩 tech_warning: el técnico sugiere OTRO camino de reparación (v0.8.2)
+
+### Idea (pedida por el dueño)
+Advertir al SA cuando el comentario del técnico contradice el camino de venta:
+seguir vendiendo reparaciones a un motor que el técnico ya dijo que conviene
+reemplazar, un vehículo "not safe to drive", o un RO bloqueado ("can't do
+anything until X"). Caso disparador: RO 70774/70758 — reparaciones de $6-8k
+mientras el técnico escribió "repairing this engine could be more expensive
+than replacing it".
+
+### Implementación
+`tech_warning` (bool) en `ro_audit` + `warn` por concern dentro de `concerns`:
+regex case-insensitive sobre `customerConcerns[].techComment` que busca:
+- reemplazo mayor: "replace the engine/transmission/motor" (con guardas para NO
+  disparar con "engine oil / air filter / transmission fluid"), "engine|
+  transmission ... needs/recommended to be replaced / replacement is recommended"
+- viabilidad: "more expensive than", "not worth fixing/repairing/it"
+- seguridad: "not safe to drive", "unsafe to drive"
+- bloqueos: "can't do anything"
+- español: "cambiar el motor/transmisión", "no es seguro"
+
+**Calibrada contra el corpus real el 2026-07-30: 5 aciertos / 0 falsos positivos**
+(70758 y 69312 motor, 70705 transmisión con $14k unsold!, 70534 not safe to
+drive, 70519 bloqueado por radio). Ojo al ajustar: "replaced the front brake
+pads", "thermostat replacement", "fuel tank replacement" NO deben disparar.
+
+UI: chip rojo "🚩 Tech: check path" (ext) / "🚩 Técnico sugiere otro camino"
+(dashboard) + el concern culpable resaltado en rojo en "Reason for visit" con
+nota de alinear con el cliente antes de seguir vendiendo por el camino actual.
+`c_tech_warning` en `sa_rollup`; cuenta en `ros_with_issues`. Advisory (no
+mandatory): pide criterio del SA, no es dato faltante.
+
+### Límite conocido
+Solo ve los `techComment` de los customer concerns — los findings de inspección
+que no nacen de un concern siguen bloqueados (DVI, ver nota 2026-06-27). Si el
+técnico solo escribió la advertencia en el finding del DVI, no la vemos.
