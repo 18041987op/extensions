@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SA Auditor — Tekmetric (AutoRx)",
-  "version": "0.8.2",
-  "description": "Shows each Service Advisor the ROs they still need to complete (and admins, the whole team's board), grouped by status. Reads data synced to Supabase. Activates only on Tekmetric.",
+  "version": "0.8.3",
+  "description": "Shows each Service Advisor their pending ROs grouped by status (admins see the whole team). Activates only on Tekmetric.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": [
     "*://*.tekmetric.com/*",
