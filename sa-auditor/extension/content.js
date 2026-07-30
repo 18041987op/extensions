@@ -29,6 +29,7 @@
     { key:"part_without_cost",      label:"Part · no cost",        sev:"med"  },
     { key:"part_without_qty",       label:"Part · no qty",         sev:"med"  },
     { key:"concern_no_estimate",    label:"Concern · no estimate", sev:"high" },
+    { key:"tech_warning",           label:"🚩 Tech: check path",   sev:"high" },
     { key:"jobs_out_of_sync",       label:"Data out of sync",      sev:"high" },
     { key:"no_authorized_jobs",     label:"No authorized jobs",    sev:"low"  },
     { key:"has_unsold",             label:"$ Unsold",              sev:"med"  },
@@ -44,7 +45,7 @@
     "jobs_out_of_sync"];
   // RO-level issues (shown as chips on the RO). Job-level issues (tech/labor/parts)
   // are shown per job via problem_jobs, with the job title.
-  const RO_LEVEL_KEYS = ["missing_vin","missing_miles","missing_address","no_authorized_jobs","concern_no_estimate","jobs_out_of_sync"];
+  const RO_LEVEL_KEYS = ["missing_vin","missing_miles","missing_address","no_authorized_jobs","concern_no_estimate","tech_warning","jobs_out_of_sync"];
 
   // Status buckets (the 3 Tekmetric board columns).
   const BUCKETS = [
@@ -375,10 +376,14 @@
       : "";
     // Reason for visit + the tech's comment on it (from Tekmetric customer concerns).
     const concerns = Array.isArray(r.concerns)?r.concerns:[];
+    // c.warn (set by the view): the tech's comment suggests a different repair
+    // path (engine/trans replacement, viability, safety) — highlight it so the
+    // SA doesn't keep selling work the tech is advising against.
     const concHtml = concerns.length
       ? `<div class="sa-conc"><div class="sa-conc-h">🗣 Reason for visit</div>
-         ${concerns.map(c=>`<div class="sa-conc-i"><div class="sa-conc-t">${esc(c.concern||"")}</div>${
-           c.techComment?`<div class="sa-conc-tech">🔧 Tech: ${esc(c.techComment)}</div>`:""}</div>`).join("")}</div>`
+         ${concerns.map(c=>`<div class="sa-conc-i${c.warn?' warn':''}"><div class="sa-conc-t">${esc(c.concern||"")}</div>${
+           c.techComment?`<div class="sa-conc-tech">🔧 Tech: ${esc(c.techComment)}</div>`:""}${
+           c.warn?`<div class="sa-conc-flag">🚩 The tech's note may change the repair path (replacement / viability / safety). Align with the customer before selling more work on the current path.</div>`:""}</div>`).join("")}</div>`
       : "";
     let detail = `${chips?`<div class="sa-chips">${chips}</div>`:""}${activeHtml}${offHtml}${unsoldHtml}${concHtml}`;
     if (!detail) detail = '<div class="sa-chips"><span class="sa-chip ok">✓ Complete</span></div>';

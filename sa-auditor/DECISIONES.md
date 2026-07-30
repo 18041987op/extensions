@@ -141,3 +141,42 @@ Solo el caso probado: job 1226971044 ("Remove & Replace Camshaft", RO 70774) mar
 `deleted_at` a mano el 2026-07-30 (evidencia: Activity log + delta exacto de
 $2,402.40 en labor). Los otros ~19 ROs quedaron con el chip de advertencia — NO
 adivinar cuál job es el fantasma; el fix de sync los limpiará.
+
+---
+
+## 2026-07-30 — 🚩 tech_warning: el técnico sugiere OTRO camino de reparación (v0.8.2)
+
+### Idea (pedida por el dueño)
+Advertir al SA cuando el comentario del técnico contradice el camino de venta:
+seguir vendiendo reparaciones a un motor que el técnico ya dijo que conviene
+reemplazar, un vehículo "not safe to drive", o un RO bloqueado ("can't do
+anything until X"). Caso disparador: RO 70774/70758 — reparaciones de $6-8k
+mientras el técnico escribió "repairing this engine could be more expensive
+than replacing it".
+
+### Implementación
+`tech_warning` (bool) en `ro_audit` + `warn` por concern dentro de `concerns`:
+regex case-insensitive sobre `customerConcerns[].techComment` que busca:
+- reemplazo mayor: "replace the engine/transmission/motor" (con guardas para NO
+  disparar con "engine oil / air filter / transmission fluid"), "engine|
+  transmission ... needs/recommended to be replaced / replacement is recommended"
+- viabilidad: "more expensive than", "not worth fixing/repairing/it"
+- seguridad: "not safe to drive", "unsafe to drive"
+- bloqueos: "can't do anything"
+- español: "cambiar el motor/transmisión", "no es seguro"
+
+**Calibrada contra el corpus real el 2026-07-30: 5 aciertos / 0 falsos positivos**
+(70758 y 69312 motor, 70705 transmisión con $14k unsold!, 70534 not safe to
+drive, 70519 bloqueado por radio). Ojo al ajustar: "replaced the front brake
+pads", "thermostat replacement", "fuel tank replacement" NO deben disparar.
+
+UI: chip rojo "🚩 Tech: check path" (ext) / "🚩 Técnico sugiere otro camino"
+(dashboard) + el concern culpable resaltado en rojo en "Reason for visit" con
+nota de alinear con el cliente antes de seguir vendiendo por el camino actual.
+`c_tech_warning` en `sa_rollup`; cuenta en `ros_with_issues`. Advisory (no
+mandatory): pide criterio del SA, no es dato faltante.
+
+### Límite conocido
+Solo ve los `techComment` de los customer concerns — los findings de inspección
+que no nacen de un concern siguen bloqueados (DVI, ver nota 2026-06-27). Si el
+técnico solo escribió la advertencia en el finding del DVI, no la vemos.

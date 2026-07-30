@@ -200,6 +200,9 @@
 .sa-conc-i:first-of-type{ border-top:none; }
 .sa-conc-t{ font-size:11.5px; color:var(--ink); white-space:pre-wrap; }
 .sa-conc-tech{ font-size:11px; color:var(--low); background:var(--low-bg); border-radius:6px; padding:4px 7px; margin-top:3px; white-space:pre-wrap; }
+.sa-conc-i.warn{ background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:5px 7px; margin-top:4px; }
+.sa-conc-i.warn .sa-conc-tech{ color:#991b1b; background:#fee2e2; }
+.sa-conc-flag{ font-size:11px; font-weight:700; color:#b91c1c; background:#fff1f2; border:1px dashed #fca5a5; border-radius:6px; padding:4px 7px; margin-top:4px; }
 
 /* per-job breakdown */
 .sa-jobs{ margin-top:7px; display:flex; flex-direction:column; gap:6px; }

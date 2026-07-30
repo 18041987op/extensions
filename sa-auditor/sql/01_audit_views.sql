@@ -132,6 +132,22 @@ meta as (
     from active_ro r
   ) x
 ),
+-- Concerns enriquecidos: cada uno con 'warn' = el techComment sugiere un camino
+-- distinto al que se está vendiendo (reemplazo de motor/transmisión, "más caro
+-- reparar que cambiar", inseguro de manejar, bloqueado hasta X). Regex calibrada
+-- el 2026-07-30 contra el corpus real: 5 aciertos, 0 falsos positivos.
+concz as (
+  select m.tekmetric_id,
+    count(*)::int as n,
+    jsonb_agg(
+      case when jsonb_typeof(c.v)='object'
+        then c.v || jsonb_build_object('warn', coalesce(c.v->>'techComment','') ~* 'replac(e|ing|ed)\s+(the\s+)?(engine|transmission|motor)(\s*([.!,;:)]|$)|\s+(assembly|completely|entirely|with|since|because|or|and|as|is|are|due)\y)|(engine|transmission)(\s+assembly)?\s+(is\s+recommended\s+to\s+be\s+replaced|needs?\s+to\s+be\s+replaced|replacement\s+is\s+recommended)|more\s+expensive\s+than|not\s+safe\s+to\s+drive|not\s+worth\s+(fixing|repairing|it)|unsafe\s+to\s+drive|can.?t\s+do\s+anything|cambiar\s+(el\s+)?(motor|transmisi)|no\s+es\s+seguro')
+        else jsonb_build_object('concern', c.v #>> '{}', 'warn', false) end) as concerns,
+    coalesce(bool_or(coalesce(c.v->>'techComment','') ~* 'replac(e|ing|ed)\s+(the\s+)?(engine|transmission|motor)(\s*([.!,;:)]|$)|\s+(assembly|completely|entirely|with|since|because|or|and|as|is|are|due)\y)|(engine|transmission)(\s+assembly)?\s+(is\s+recommended\s+to\s+be\s+replaced|needs?\s+to\s+be\s+replaced|replacement\s+is\s+recommended)|more\s+expensive\s+than|not\s+safe\s+to\s+drive|not\s+worth\s+(fixing|repairing|it)|unsafe\s+to\s+drive|can.?t\s+do\s+anything|cambiar\s+(el\s+)?(motor|transmisi)|no\s+es\s+seguro'), false) as tech_warning
+  from meta m,
+    lateral jsonb_array_elements(case when jsonb_typeof(m.cc)='array' then m.cc else '[]'::jsonb end) c(v)
+  group by m.tekmetric_id
+),
 -- Suma de jobs "vivos" (selected, no declinados) para cotejar contra los
 -- subtotales del propio RO y detectar jobs fantasma (ver nota arriba).
 rosync as (
@@ -183,10 +199,10 @@ select
   coalesce(ja.unsold_jobs,0)                       as unsold_jobs,
   coalesce(ja.unsold_amount,0)                     as unsold_amount,
   coalesce(ja.unsold_list,'[]'::jsonb)             as unsold_jobs_list,
-  case when jsonb_typeof(m.cc)='array' then m.cc else '[]'::jsonb end as concerns,
-  case when jsonb_typeof(m.cc)='array' then jsonb_array_length(m.cc) else 0 end as concerns_count,
-  ( (case when jsonb_typeof(m.cc)='array' then jsonb_array_length(m.cc) else 0 end) > 0
-    and coalesce(ja.jobs_any,0) = 0 )              as concern_no_estimate,
+  coalesce(cz.concerns,'[]'::jsonb)                as concerns,
+  coalesce(cz.n,0)                                 as concerns_count,
+  ( coalesce(cz.n,0) > 0 and coalesce(ja.jobs_any,0) = 0 ) as concern_no_estimate,
+  coalesce(cz.tech_warning,false)                  as tech_warning,
   ( abs(coalesce(r.labor_sub_total,0) - coalesce(rs.labor_live,0)) > 1
     or abs(coalesce(r.parts_sub_total,0) - coalesce(rs.parts_live,0)) > 1 ) as jobs_out_of_sync,
   nullif(trim(te.full_name),'')                    as technician,
@@ -201,6 +217,7 @@ left join public.tekmetric_employees e on e.tekmetric_id = r.service_writer_id
 left join public.tekmetric_employees te on te.tekmetric_id = r.technician_id
 left join cust cu on cu.tekmetric_id = r.customer_id
 left join meta m  on m.tekmetric_id = r.tekmetric_id
+left join concz cz on cz.tekmetric_id = r.tekmetric_id
 left join appt_best ab on ab.tekmetric_id = r.tekmetric_id
 left join jobagg ja on ja.repair_order_id = r.tekmetric_id
 left join rosync rs on rs.repair_order_id = r.tekmetric_id;
@@ -221,7 +238,7 @@ select
   count(*) filter (where missing_vin or missing_miles or missing_address or auth_job_without_tech
         or auth_job_without_labor or part_without_price or part_without_cost
         or part_without_qty or no_authorized_jobs or concern_no_estimate
-        or jobs_out_of_sync) as ros_with_issues,
+        or jobs_out_of_sync or tech_warning) as ros_with_issues,
   count(*) filter (where missing_vin)            as c_missing_vin,
   count(*) filter (where missing_miles)          as c_missing_miles,
   count(*) filter (where missing_address)        as c_missing_address,
@@ -233,6 +250,7 @@ select
   count(*) filter (where no_authorized_jobs)     as c_no_estimate,
   count(*) filter (where concern_no_estimate)    as c_concern_no_estimate,
   count(*) filter (where jobs_out_of_sync)       as c_out_of_sync,
+  count(*) filter (where tech_warning)           as c_tech_warning,
   count(*) filter (where unsold_amount > 0)      as c_unsold,
   round(coalesce(sum(unsold_amount),0),2)        as unsold_amount
 from public.ro_audit
