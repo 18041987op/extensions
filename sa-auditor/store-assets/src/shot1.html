@@ -1,0 +1,121 @@
+<meta charset="utf-8">
+<link rel="stylesheet" href="panel.css">
+<style>
+  html,body{margin:0;padding:0;}
+  .stage{width:1280px;height:800px;overflow:hidden;position:relative;
+    background:
+      radial-gradient(900px 600px at 85% 20%, rgba(14,165,160,.28), transparent 60%),
+      radial-gradient(700px 500px at 10% 90%, rgba(59,130,246,.18), transparent 60%),
+      linear-gradient(120deg,#0b1730,#0f1f3d 55%,#123049);
+    font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;}
+  .copy{position:absolute;left:76px;top:150px;width:470px;color:#fff;}
+  .kicker{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:800;letter-spacing:1.5px;
+    text-transform:uppercase;color:#5eead4;margin-bottom:18px;}
+  .kicker .dot{width:9px;height:9px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 4px rgba(74,222,128,.18);}
+  h1{font-size:44px;line-height:1.12;margin:0 0 18px;font-weight:900;letter-spacing:-.5px;}
+  h1 em{font-style:normal;color:#5eead4;}
+  .sub{font-size:18px;line-height:1.55;color:#c7d4e8;margin-bottom:26px;}
+  .feat{display:flex;flex-direction:column;gap:12px;}
+  .f{display:flex;gap:11px;align-items:flex-start;font-size:15.5px;color:#e6eefb;}
+  .f .ic{flex:0 0 auto;width:26px;height:26px;border-radius:8px;background:rgba(94,234,212,.14);
+    display:flex;align-items:center;justify-content:center;font-size:14px;}
+  /* panel placement */
+  #sa-widget{position:absolute;right:72px;top:44px;width:420px;height:712px;box-shadow:0 30px 80px rgba(0,0,0,.55),0 4px 16px rgba(0,0,0,.35);}
+  .sa-head{cursor:default;}
+</style>
+<div class="stage">
+  <div class="copy">
+    <div class="kicker"><span class="dot"></span>SA AUDITOR</div>
+    <h1>Never let an RO <em>slip through</em> again</h1>
+    <div class="sub">Your pending Repair Orders, audited and grouped by status — right inside Tekmetric.</div>
+    <div class="feat">
+      <div class="f"><span class="ic">✅</span>Flags missing VIN, miles, address, labor, parts &amp; pricing</div>
+      <div class="f"><span class="ic">💰</span>Tracks unsold jobs pending customer approval</div>
+      <div class="f"><span class="ic">🚩</span>Warns when the tech suggests a different repair path</div>
+      <div class="f"><span class="ic">👤</span>Each advisor sees their own board — admins see everyone</div>
+    </div>
+  </div>
+
+  <div id="sa-widget">
+    <div class="sa-head">
+      <div class="sa-logo">✓</div><div class="sa-ttl">SA Auditor</div><div class="sa-sp"></div>
+      <div class="sa-dot ok"></div>
+      <button class="sa-icon">⟳</button><button class="sa-icon">—</button><button class="sa-icon">✕</button>
+    </div>
+    <div class="sa-idbar">You: <b>Alex Rivera</b> <span class="sa-role sa">Service Advisor</span></div>
+    <div class="sa-body">
+      <div class="sa-headline warn">
+        <div class="sa-headline-main">⚠️ 3 ROs need attention</div>
+        <div class="sa-headline-sub">Work In Progress + Completed must have everything filled</div>
+      </div>
+      <div class="sa-tabs">
+        <button class="sa-tab on">Work In Progress <span class="sa-tab-n">5</span></button>
+        <button class="sa-tab">Completed <span class="sa-tab-n">2</span></button>
+        <button class="sa-tab soft">Estimates <span class="sa-tab-n">4</span></button>
+      </div>
+      <div class="sa-moneybar">💰 <b>$1,845</b> unsold (pending approval) in 2 ROs — use the <b>$ Unsold</b> filter to chase it.</div>
+
+      <div class="sa-list">
+        <div class="sa-ro high open">
+          <div class="sa-ro-bar"></div>
+          <div class="sa-ro-main">
+            <div class="sa-ro-head">
+              <a class="sa-ro-link">RO #48213</a>
+              <span class="sa-ro-veh">2019 Ford F-150 XLT</span>
+              <div class="sa-ro-flags"><span class="sa-cnt">3 issues</span><span class="sa-ro-age">2d</span></div>
+            </div>
+            <div class="sa-ro-detail" style="max-height:none;opacity:1;padding:0 11px 10px;">
+              <div class="sa-chips">
+                <span class="sa-chip high">No miles in</span>
+                <span class="sa-chip high">🚩 Tech: check path</span>
+                <span class="sa-chip money">💰 $1,240</span>
+              </div>
+              <div class="sa-unsold">
+                <div class="sa-unsold-h">💰 Pending approval (unsold) · <b>$1,240</b></div>
+                <div class="sa-unsold-j"><span>Front brake pads &amp; rotors</span><b>$685</b></div>
+                <div class="sa-unsold-j"><span>Serpentine belt replacement</span><b>$555</b></div>
+              </div>
+              <div class="sa-conc">
+                <div class="sa-conc-h">Reason for visit</div>
+                <div class="sa-conc-i warn">
+                  <div class="sa-conc-t">Customer states grinding noise when braking</div>
+                  <div class="sa-conc-tech">Tech: rotors are fine — noise is coming from a worn wheel bearing, recommend replacing hub assembly instead</div>
+                  <div class="sa-conc-flag">🚩 Tech suggests a different repair path — review before selling</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sa-ro high">
+          <div class="sa-ro-bar"></div>
+          <div class="sa-ro-main">
+            <div class="sa-ro-head">
+              <a class="sa-ro-link">RO #48219</a>
+              <span class="sa-ro-veh">2021 Toyota RAV4 LE</span>
+              <div class="sa-ro-flags"><span class="sa-cnt">2 issues</span><span class="sa-ro-age">1d</span></div>
+            </div>
+            <div class="sa-ro-detail" style="max-height:none;opacity:1;padding:0 11px 10px;">
+              <div class="sa-chips">
+                <span class="sa-chip high">No VIN</span>
+                <span class="sa-chip high">Part · no sale price</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sa-ro ok">
+          <div class="sa-ro-bar"></div>
+          <div class="sa-ro-main">
+            <div class="sa-ro-head">
+              <a class="sa-ro-link">RO #48225</a>
+              <span class="sa-ro-veh">2018 Honda Civic EX</span>
+              <div class="sa-ro-flags"><span class="sa-cnt ok">All set</span><span class="sa-ro-age">4h</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sa-foot">SA Auditor · auto-refreshes every 60s</div>
+    </div>
+  </div>
+</div>
