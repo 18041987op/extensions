@@ -19,6 +19,13 @@
 -- así que jobs declinados/pendientes/apagados no contaminan las banderas del RO.
 --
 -- Notas de datos:
+--   * raw_data del RO trae customerConcerns: [{id, concern, techComment}] — la
+--     "razón de visita" del cliente y el comentario/recomendación del técnico
+--     sobre ella. Se expone como `concerns` + bandera concern_no_estimate
+--     (hay concerns pero NO se creó ningún job = posible estimado sin crear).
+--   * "$ unsold" = jobs PENDIENTES (selected=true, authorized=false, sin
+--     authorized_date): recomendados al cliente pero aún no vendidos.
+--     Se expone monto/lista por RO y suma por SA (para perseguir el upsell).
 --   * tekmetric_customers.address es jsonb a veces doble-codificado (string).
 --   * El RO NO trae appointmentId fiable; waiter (appointmentOption STAY) y hora
 --     de entrega (pickupTime) se cruzan best-effort por vehículo+fecha (cobertura
@@ -43,6 +50,8 @@ with active_ro as (
 jobx as (
   select j.repair_order_id, j.tekmetric_id as job_id, j.name as title,
     j.authorized, j.labor_hours, coalesce(j.selected,false) as sel,
+    j.total_amount,
+    (coalesce(j.selected,false) and not j.authorized and j.authorized_date is null) as pending,
     (j.authorized and j.technician_id is null)     as no_tech,
     (j.authorized and coalesce(j.labor_hours,0)=0) as no_labor,
     coalesce(bool_or(li.line_type ilike '%part%' and (li.unit_price is null or li.unit_price=0)),false) as no_price,
@@ -53,7 +62,8 @@ jobx as (
     on li.job_tekmetric_id = j.tekmetric_id and li.deleted_at is null
   where j.deleted_at is null and coalesce(j.archived,false)=false
     and j.repair_order_id in (select tekmetric_id from active_ro)
-  group by j.repair_order_id, j.tekmetric_id, j.name, j.authorized, j.labor_hours, j.selected, j.technician_id
+  group by j.repair_order_id, j.tekmetric_id, j.name, j.authorized, j.authorized_date,
+    j.labor_hours, j.selected, j.technician_id, j.total_amount
 ),
 jobagg as (
   -- Auditoría obligatoria = SOLO jobs APROBADOS (j.authorized). Esto excluye:
@@ -61,8 +71,17 @@ jobagg as (
   --   · Pendientes: authorized=false sin authorized_date (recomendación sin aprobar).
   -- Los apagados (selected=false) se reportan aparte como advisory.
   select repair_order_id,
+    count(*)                           as jobs_any,
     count(*) filter (where sel)        as jobs_total,
     count(*) filter (where authorized) as jobs_authorized,
+    count(*) filter (where pending)    as unsold_jobs,
+    round(coalesce(sum(total_amount) filter (where pending),0),2) as unsold_amount,
+    coalesce(
+      jsonb_agg(jsonb_build_object('title', title, 'amount', round(coalesce(total_amount,0),2))
+                order by total_amount desc nulls last)
+      filter (where pending),
+      '[]'::jsonb
+    ) as unsold_list,
     round(coalesce(sum(labor_hours) filter (where authorized),0),2) as labor_hours,
     coalesce(bool_or(no_tech)  filter (where authorized),false) as auth_job_without_tech,
     coalesce(bool_or(no_labor) filter (where authorized),false) as auth_job_without_labor,
@@ -97,7 +116,8 @@ cust as (
 meta as (
   select x.tekmetric_id,
     case when jsonb_typeof(x.jj->'repairOrderLabel')='string'       then (x.jj->'repairOrderLabel'#>>'{}')::jsonb       else x.jj->'repairOrderLabel'       end as lab,
-    case when jsonb_typeof(x.jj->'repairOrderCustomLabel')='string' then (x.jj->'repairOrderCustomLabel'#>>'{}')::jsonb else x.jj->'repairOrderCustomLabel' end as clab
+    case when jsonb_typeof(x.jj->'repairOrderCustomLabel')='string' then (x.jj->'repairOrderCustomLabel'#>>'{}')::jsonb else x.jj->'repairOrderCustomLabel' end as clab,
+    case when jsonb_typeof(x.jj->'customerConcerns')='string'       then (x.jj->'customerConcerns'#>>'{}')::jsonb       else x.jj->'customerConcerns'       end as cc
   from (
     select r.tekmetric_id,
       case when jsonb_typeof(r.raw_data)='string' then (r.raw_data #>> '{}')::jsonb else r.raw_data end as jj
@@ -141,6 +161,13 @@ select
   (coalesce(ja.jobs_total,0) > 0 and coalesce(ja.jobs_authorized,0) = 0) as no_authorized_jobs,
   coalesce(ja.off_jobs_with_errors,false)          as off_jobs_with_errors,
   coalesce(ja.problem_jobs,'[]'::jsonb)            as problem_jobs,
+  coalesce(ja.unsold_jobs,0)                       as unsold_jobs,
+  coalesce(ja.unsold_amount,0)                     as unsold_amount,
+  coalesce(ja.unsold_list,'[]'::jsonb)             as unsold_jobs_list,
+  case when jsonb_typeof(m.cc)='array' then m.cc else '[]'::jsonb end as concerns,
+  case when jsonb_typeof(m.cc)='array' then jsonb_array_length(m.cc) else 0 end as concerns_count,
+  ( (case when jsonb_typeof(m.cc)='array' then jsonb_array_length(m.cc) else 0 end) > 0
+    and coalesce(ja.jobs_any,0) = 0 )              as concern_no_estimate,
   nullif(trim(te.full_name),'')                    as technician,
   coalesce(r.estimated_completion_date, (ab.pickup_time)::timestamptz) as eta,
   coalesce(nullif(trim(m.clab->>'name'),''), nullif(trim(m.lab->>'name'),'')) as ro_label,
@@ -171,7 +198,7 @@ select
           or part_without_qty)) as mandatory_issues,
   count(*) filter (where missing_vin or missing_miles or missing_address or auth_job_without_tech
         or auth_job_without_labor or part_without_price or part_without_cost
-        or part_without_qty or no_authorized_jobs) as ros_with_issues,
+        or part_without_qty or no_authorized_jobs or concern_no_estimate) as ros_with_issues,
   count(*) filter (where missing_vin)            as c_missing_vin,
   count(*) filter (where missing_miles)          as c_missing_miles,
   count(*) filter (where missing_address)        as c_missing_address,
@@ -180,7 +207,10 @@ select
   count(*) filter (where part_without_price)     as c_part_no_price,
   count(*) filter (where part_without_cost)      as c_part_no_cost,
   count(*) filter (where part_without_qty)       as c_part_no_qty,
-  count(*) filter (where no_authorized_jobs)     as c_no_estimate
+  count(*) filter (where no_authorized_jobs)     as c_no_estimate,
+  count(*) filter (where concern_no_estimate)    as c_concern_no_estimate,
+  count(*) filter (where unsold_amount > 0)      as c_unsold,
+  round(coalesce(sum(unsold_amount),0),2)        as unsold_amount
 from public.ro_audit
 group by service_advisor, service_writer_id;
 
