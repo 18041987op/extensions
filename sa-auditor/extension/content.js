@@ -29,6 +29,7 @@
     { key:"part_without_cost",      label:"Part · no cost",        sev:"med"  },
     { key:"part_without_qty",       label:"Part · no qty",         sev:"med"  },
     { key:"concern_no_estimate",    label:"Concern · no estimate", sev:"high" },
+    { key:"jobs_out_of_sync",       label:"Data out of sync",      sev:"high" },
     { key:"no_authorized_jobs",     label:"No authorized jobs",    sev:"low"  },
     { key:"has_unsold",             label:"$ Unsold",              sev:"med"  },
   ];
@@ -36,11 +37,14 @@
 
   // Mandatory checks for Work In Progress + Completed (everything must be filled).
   // "no_authorized_jobs" is an estimate-only soft signal, so it's not mandatory here.
+  // jobs_out_of_sync is mandatory-level: the RO's job data can't be trusted
+  // (deleted jobs in Tekmetric may still be counted here), so never show it as ok.
   const MANDATORY_KEYS = ["missing_vin","missing_miles","missing_address","auth_job_without_tech",
-    "auth_job_without_labor","part_without_price","part_without_cost","part_without_qty"];
+    "auth_job_without_labor","part_without_price","part_without_cost","part_without_qty",
+    "jobs_out_of_sync"];
   // RO-level issues (shown as chips on the RO). Job-level issues (tech/labor/parts)
   // are shown per job via problem_jobs, with the job title.
-  const RO_LEVEL_KEYS = ["missing_vin","missing_miles","missing_address","no_authorized_jobs","concern_no_estimate"];
+  const RO_LEVEL_KEYS = ["missing_vin","missing_miles","missing_address","no_authorized_jobs","concern_no_estimate","jobs_out_of_sync"];
 
   // Status buckets (the 3 Tekmetric board columns).
   const BUCKETS = [
@@ -366,7 +370,8 @@
     const unsoldList = Array.isArray(r.unsold_jobs_list)?r.unsold_jobs_list:[];
     const unsoldHtml = unsoldList.length
       ? `<div class="sa-unsold"><div class="sa-unsold-h">💰 Pending approval (unsold) · <b>${fmtMoney(r.unsold_amount)}</b></div>
-         ${unsoldList.map(u=>`<div class="sa-unsold-j"><span>${esc(u.title||"(untitled)")}</span><b>${fmtMoney(u.amount)}</b></div>`).join("")}</div>`
+         ${unsoldList.map(u=>`<div class="sa-unsold-j"><span>${esc(u.title||"(untitled)")}</span><b>${fmtMoney(u.amount)}</b></div>`).join("")}${
+           r.jobs_out_of_sync?`<div class="sa-unsold-warn">⚠ Totals don't match Tekmetric — this list may include jobs already deleted there. Verify in Tekmetric before quoting the customer.</div>`:""}</div>`
       : "";
     // Reason for visit + the tech's comment on it (from Tekmetric customer concerns).
     const concerns = Array.isArray(r.concerns)?r.concerns:[];
@@ -427,9 +432,14 @@
     }
     const n = roIssueCount(cur);
     const off = (Array.isArray(cur.problem_jobs)?cur.problem_jobs:[]).filter(j=>j.off).length;
-    const msg = n>0 ? `⚠ ${n} thing${n>1?'s':''} to fix on this RO` : "✓ This RO looks complete";
+    const unsold = +cur.unsold_amount || 0;
+    // Never bless an RO with money still on the table: documentation may be
+    // complete, but the sale isn't — the SA must not read this as "done".
+    let cls = "ok", msg = "✓ This RO looks complete";
+    if (n>0)            { cls = "warn";  msg = `⚠ ${n} thing${n>1?'s':''} to fix on this RO`; }
+    else if (unsold>0)  { cls = "money"; msg = `📋 Documented, but 💰 <b>${fmtMoney(unsold)}</b> pending approval — not done until it's sold (or declined)`; }
     const offmsg = (n===0 && off>0) ? " · 🔌 review turned-off option(s)" : "";
-    return `<div class="sa-curbanner ${n>0?'warn':'ok'}">📍 <b>You're on RO #${esc(cur.ro_number)}</b> — ${msg}${offmsg}</div>${roCard(cur,true)}`;
+    return `<div class="sa-curbanner ${cls}">📍 <b>You're on RO #${esc(cur.ro_number)}</b> — ${msg}${offmsg}</div>${roCard(cur,true)}`;
   }
 
   /* ---------- SA view ---------- */

@@ -26,6 +26,14 @@
 --   * "$ unsold" = jobs PENDIENTES (selected=true, authorized=false, sin
 --     authorized_date): recomendados al cliente pero aún no vendidos.
 --     Se expone monto/lista por RO y suma por SA (para perseguir el upsell).
+--   * jobs_out_of_sync: el sync incremental de Tekmetric NUNCA marca jobs
+--     borrados (un job eliminado deja de venir en el API y su fila queda viva
+--     aquí = "fantasma"). El RO sí se re-sincroniza al cambiar, y sus subtotales
+--     (labor_sub_total/parts_sub_total) excluyen jobs borrados y declinados.
+--     Si la suma de nuestros jobs "vivos" (selected y no declinados) difiere de
+--     los subtotales del RO en > $1, los datos de jobs de ese RO no son
+--     confiables y la extensión lo advierte. Fix real pendiente en el servicio
+--     de sync: reconciliar jobs por RO y poner deleted_at a los que ya no vengan.
 --   * tekmetric_customers.address es jsonb a veces doble-codificado (string).
 --   * El RO NO trae appointmentId fiable; waiter (appointmentOption STAY) y hora
 --     de entrega (pickupTime) se cruzan best-effort por vehículo+fecha (cobertura
@@ -124,6 +132,17 @@ meta as (
     from active_ro r
   ) x
 ),
+-- Suma de jobs "vivos" (selected, no declinados) para cotejar contra los
+-- subtotales del propio RO y detectar jobs fantasma (ver nota arriba).
+rosync as (
+  select j.repair_order_id,
+    coalesce(sum(j.labor_sub_total) filter (where coalesce(j.selected,false) and (j.authorized or j.authorized_date is null)),0) as labor_live,
+    coalesce(sum(j.parts_sub_total) filter (where coalesce(j.selected,false) and (j.authorized or j.authorized_date is null)),0) as parts_live
+  from public.tekmetric_jobs j
+  where j.deleted_at is null and coalesce(j.archived,false)=false
+    and j.repair_order_id in (select tekmetric_id from active_ro)
+  group by j.repair_order_id
+),
 appt_raw as (
   select a.vehicle_id, a.start_time,
     case when jsonb_typeof(a.raw_data)='string' then (a.raw_data #>> '{}')::jsonb else a.raw_data end as j
@@ -168,6 +187,8 @@ select
   case when jsonb_typeof(m.cc)='array' then jsonb_array_length(m.cc) else 0 end as concerns_count,
   ( (case when jsonb_typeof(m.cc)='array' then jsonb_array_length(m.cc) else 0 end) > 0
     and coalesce(ja.jobs_any,0) = 0 )              as concern_no_estimate,
+  ( abs(coalesce(r.labor_sub_total,0) - coalesce(rs.labor_live,0)) > 1
+    or abs(coalesce(r.parts_sub_total,0) - coalesce(rs.parts_live,0)) > 1 ) as jobs_out_of_sync,
   nullif(trim(te.full_name),'')                    as technician,
   coalesce(r.estimated_completion_date, (ab.pickup_time)::timestamptz) as eta,
   coalesce(nullif(trim(m.clab->>'name'),''), nullif(trim(m.lab->>'name'),'')) as ro_label,
@@ -181,7 +202,8 @@ left join public.tekmetric_employees te on te.tekmetric_id = r.technician_id
 left join cust cu on cu.tekmetric_id = r.customer_id
 left join meta m  on m.tekmetric_id = r.tekmetric_id
 left join appt_best ab on ab.tekmetric_id = r.tekmetric_id
-left join jobagg ja on ja.repair_order_id = r.tekmetric_id;
+left join jobagg ja on ja.repair_order_id = r.tekmetric_id
+left join rosync rs on rs.repair_order_id = r.tekmetric_id;
 
 create view public.sa_rollup
 with (security_invoker = false) as
@@ -198,7 +220,8 @@ select
           or part_without_qty)) as mandatory_issues,
   count(*) filter (where missing_vin or missing_miles or missing_address or auth_job_without_tech
         or auth_job_without_labor or part_without_price or part_without_cost
-        or part_without_qty or no_authorized_jobs or concern_no_estimate) as ros_with_issues,
+        or part_without_qty or no_authorized_jobs or concern_no_estimate
+        or jobs_out_of_sync) as ros_with_issues,
   count(*) filter (where missing_vin)            as c_missing_vin,
   count(*) filter (where missing_miles)          as c_missing_miles,
   count(*) filter (where missing_address)        as c_missing_address,
@@ -209,6 +232,7 @@ select
   count(*) filter (where part_without_qty)       as c_part_no_qty,
   count(*) filter (where no_authorized_jobs)     as c_no_estimate,
   count(*) filter (where concern_no_estimate)    as c_concern_no_estimate,
+  count(*) filter (where jobs_out_of_sync)       as c_out_of_sync,
   count(*) filter (where unsold_amount > 0)      as c_unsold,
   round(coalesce(sum(unsold_amount),0),2)        as unsold_amount
 from public.ro_audit

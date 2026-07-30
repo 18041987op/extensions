@@ -94,6 +94,7 @@
 .sa-curbanner{ border-radius:10px; padding:9px 12px; margin-bottom:8px; font-size:12.5px; font-weight:700; }
 .sa-curbanner.warn{ background:linear-gradient(135deg,#fff7ed,#fee2e2); border:1px solid #fecaca; color:#b91c1c; }
 .sa-curbanner.ok{ background:linear-gradient(135deg,#f0fdf4,#dcfce7); border:1px solid #bbf7d0; color:#15803d; }
+.sa-curbanner.money{ background:linear-gradient(135deg,#fffbeb,#fef3c7); border:1px solid #fcd34d; color:#92400e; }
 .sa-curbanner.none{ background:#eef2f7; border:1px solid var(--line); color:var(--muted); font-weight:600; }
 .sa-curbanner + .sa-ro{ margin-bottom:12px; box-shadow:0 0 0 2px rgba(59,130,246,.18); }
 
@@ -189,6 +190,7 @@
 .sa-unsold-h{ font-size:11.5px; font-weight:700; color:#047857; margin-bottom:4px; }
 .sa-unsold-j{ display:flex; justify-content:space-between; gap:10px; font-size:11.5px; color:#065f46; padding:1px 0; }
 .sa-unsold-j span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sa-unsold-warn{ margin-top:5px; font-size:11px; font-weight:700; color:#b45309; background:#fffbeb; border:1px solid #fcd34d; border-radius:6px; padding:4px 7px; }
 .sa-acc-unsold{ font-size:10.5px; font-weight:700; color:#047857; white-space:nowrap; flex:0 0 auto; }
 
 /* reason for visit (customer concerns + tech comment) */

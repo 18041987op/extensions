@@ -92,3 +92,52 @@ exponga inspections en su API). Pero cubre el caso principal de seguimiento:
   para poder usarlo como pseudo-issue en los filtros de la extensión.
 - `concern_no_estimate` se sumó a `ros_with_issues` del rollup (afecta el conteo de
   las tarjetas por SA del dashboard); `mandatory_issues` quedó igual.
+
+---
+
+## 2026-07-30 — 🐛 Jobs fantasma: el sync NUNCA marca jobs borrados (v0.8.1)
+
+### El bug (encontrado con el RO #70774)
+Thalia creó el job "Remove & Replace Camshaft" (4:40 PM) y lo **eliminó** 8 minutos
+después (4:48 PM, consta en el Activity de Tekmetric). Nuestra tabla `tekmetric_jobs`
+lo mantuvo **vivo**: el sync incremental pide "jobs modificados desde X", y un job
+borrado simplemente **deja de venir** en el API — nadie le pone `deleted_at`. La
+extensión mostraba $6,985 unsold cuando lo real era $4,582.73, y con el banner verde
+"looks complete": doble engaño al SA.
+
+**Magnitud medida ese día: 20 de 152 ROs activos** tenían jobs fantasma (deltas de
+$27 hasta $10k). No es un caso raro; pasa cada vez que un SA borra o re-crea un job.
+
+### Detección implementada (workaround honesto, no el fix de raíz)
+El RO **sí** se re-sincroniza al cambiar, y sus `labor_sub_total` / `parts_sub_total`
+excluyen jobs borrados Y declinados. Nueva columna `jobs_out_of_sync` en `ro_audit`:
+
+    suma de jobs "vivos" (selected=true y no declinados: authorized o sin
+    authorized_date) por RO  vs  subtotales del propio RO; difieren > $1 ⇒ true
+
+Hipótesis validada contra la flota: comparando contra TODOS los jobs había 42
+mismatches; excluyendo declinados quedaron 20 — los 20 son fantasmas reales (todos
+los deltas negativos = nuestra tabla suma de más). El umbral $1 absorbe redondeos.
+
+UI: chip rojo "Data out of sync" (extensión) / "Datos desincronizados" (dashboard),
+cuenta como issue obligatorio (un RO con datos no confiables jamás se muestra ✓),
+y la lista de unsold lleva advertencia de verificar en Tekmetric. `c_out_of_sync`
+en `sa_rollup`.
+
+También v0.8.1: el banner del RO actual ya **no dice "✓ looks complete" si hay
+unsold** — muestra ámbar "Documented, but 💰 $X pending approval — not done until
+it's sold (or declined)". (Feedback directo del dueño: el verde daba por bueno
+un RO con dinero sin vender.)
+
+### Fix de raíz PENDIENTE (vive en el servicio de sync, no en este repo)
+El sync corre fuera de Supabase (no hay edge functions en el proyecto C). Cuando se
+toque ese servicio: al sincronizar un RO modificado, pedir **todos** sus jobs
+(`GET /jobs?repairOrderId=X`) y poner `deleted_at=now()` a las filas locales de ese
+RO que ya no vengan en la respuesta. Con eso `jobs_out_of_sync` debería quedar
+siempre false y se puede degradar el chip a advisory.
+
+### Limpieza manual hecha
+Solo el caso probado: job 1226971044 ("Remove & Replace Camshaft", RO 70774) marcado
+`deleted_at` a mano el 2026-07-30 (evidencia: Activity log + delta exacto de
+$2,402.40 en labor). Los otros ~19 ROs quedaron con el chip de advertencia — NO
+adivinar cuál job es el fantasma; el fix de sync los limpiará.
