@@ -24,7 +24,7 @@
   .btn:hover{background:var(--teal-d);color:#fff}
   .wrap{max-width:1180px;margin:0 auto;padding:18px}
 
-  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
   .kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
   .kpi .n{font-size:26px;font-weight:800}
   .kpi .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
@@ -60,6 +60,8 @@
   .chip.med{background:var(--med-bg);color:var(--med)}
   .chip.low{background:var(--low-bg);color:var(--low)}
   .chip.ok{background:#e6f4ea;color:var(--ok)}
+  .chip.money{background:#dcfce7;color:#047857;font-weight:700}
+  .kpi.money .n{color:#047857}
 
   .msg{padding:30px;text-align:center;color:var(--muted)}
   .foot{font-size:11.5px;color:var(--muted);margin-top:14px;text-align:center}
@@ -132,6 +134,7 @@ const ISSUES = [
   { key:"part_without_cost",      label:"Parte sin costo",        sev:"med"  },
   { key:"part_without_qty",       label:"Parte sin cantidad",     sev:"med"  },
   { key:"missing_miles",          label:"Sin millas",             sev:"med"  },
+  { key:"concern_no_estimate",    label:"Concern sin estimado",   sev:"high" },
   { key:"no_authorized_jobs",     label:"Sin jobs autorizados",   sev:"low"  },
 ];
 const SEV_RANK = { high:3, med:2, low:1 };
@@ -167,19 +170,22 @@ async function load(){
   }
 }
 
+function fmtMoney(n){ n=+n||0; return "$"+n.toLocaleString("en-US",{maximumFractionDigits:0}); }
 function renderKpis(){
   const active = RO.length;
   const withIssues = RO.filter(r => r._issues.length).length;
   const high = RO.filter(r => r._issues.some(i=>i.sev==="high")).length;
   const sas = ROLL.length;
+  const unsold = RO.reduce((s,r)=>s+(+r.unsold_amount||0),0);
   const k = [
     {l:"ROs activos", n:active},
     {l:"Con problemas", n:withIssues, alert:withIssues>0},
     {l:"Con problema grave", n:high, alert:high>0},
+    {l:"$ por vender (pendiente)", n:fmtMoney(unsold), money:true},
     {l:"Service Advisors", n:sas},
   ];
   document.getElementById("kpis").innerHTML = k.map(x =>
-    `<div class="kpi ${x.alert?'alert':''}"><div class="n">${x.n}</div><div class="l">${x.l}</div></div>`).join("");
+    `<div class="kpi ${x.alert?'alert':''} ${x.money?'money':''}"><div class="n">${x.n}</div><div class="l">${x.l}</div></div>`).join("");
 }
 
 let saFilter = "";
@@ -191,6 +197,7 @@ function renderCards(){
       <div class="nm">${esc(s.service_advisor)}</div>
       <div class="big ${zero?'zero':''}">${s.ros_with_issues}</div>
       <div class="ln">de ${s.active_ros} ROs activos con problemas</div>
+      ${(+s.unsold_amount||0)>0?`<div class="ln" style="color:#047857;font-weight:700">💰 ${fmtMoney(s.unsold_amount)} por vender (${s.c_unsold} RO${s.c_unsold!=1?'s':''})</div>`:''}
     </div>`;
   }).join("");
   document.querySelectorAll(".sa-card").forEach(c => c.addEventListener("click", () => {
@@ -240,9 +247,10 @@ function renderRows(){
   document.getElementById("count").textContent = rows.length + " RO(s)";
   if (!rows.length){ document.getElementById("rows").innerHTML = '<tr><td colspan="7" class="msg">Sin resultados con estos filtros. 🎉</td></tr>'; return; }
   document.getElementById("rows").innerHTML = rows.map(r=>{
-    const chips = r._issues.length
+    const money = (+r.unsold_amount||0)>0 ? `<span class="chip money">💰 ${fmtMoney(r.unsold_amount)} por vender</span>` : "";
+    const chips = (r._issues.length
       ? r._issues.map(i=>`<span class="chip ${i.sev}">${i.label}</span>`).join("")
-      : '<span class="chip ok">✓ Completo</span>';
+      : '<span class="chip ok">✓ Completo</span>') + money;
     const roCell = TEKMETRIC_RO_URL
       ? `<a href="${TEKMETRIC_RO_URL.replace("{ro_id}",r.ro_id).replace("{ro_number}",r.ro_number)}" target="_blank">#${esc(r.ro_number)}</a>`
       : `#${esc(r.ro_number)}`;

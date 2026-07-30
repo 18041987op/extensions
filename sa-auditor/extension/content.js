@@ -28,7 +28,9 @@
     { key:"part_without_price",     label:"Part · no sale price",  sev:"high" },
     { key:"part_without_cost",      label:"Part · no cost",        sev:"med"  },
     { key:"part_without_qty",       label:"Part · no qty",         sev:"med"  },
+    { key:"concern_no_estimate",    label:"Concern · no estimate", sev:"high" },
     { key:"no_authorized_jobs",     label:"No authorized jobs",    sev:"low"  },
+    { key:"has_unsold",             label:"$ Unsold",              sev:"med"  },
   ];
   const SEV = { high:3, med:2, low:1 };
 
@@ -38,7 +40,7 @@
     "auth_job_without_labor","part_without_price","part_without_cost","part_without_qty"];
   // RO-level issues (shown as chips on the RO). Job-level issues (tech/labor/parts)
   // are shown per job via problem_jobs, with the job title.
-  const RO_LEVEL_KEYS = ["missing_vin","missing_miles","missing_address","no_authorized_jobs"];
+  const RO_LEVEL_KEYS = ["missing_vin","missing_miles","missing_address","no_authorized_jobs","concern_no_estimate"];
 
   // Status buckets (the 3 Tekmetric board columns).
   const BUCKETS = [
@@ -229,7 +231,7 @@
       CFG.userSelector = c.userSelector||"";
       try{
         [ROLL, RO, TECH] = await Promise.all([ api("sa_rollup","select=*"), api("ro_audit","select=*"), api("tech_board","select=*") ]);
-        RO.forEach(r=>{ r._issues=issuesOf(r); r._age=ageDays(r.ro_created_at); });
+        RO.forEach(r=>{ r.has_unsold=(+r.unsold_amount||0)>0; r._issues=issuesOf(r); r._age=ageDays(r.ro_created_at); });
         resolveRole();
         renderIdentity(); render();
         $("sa-dot").className="sa-dot ok";
@@ -321,6 +323,7 @@
       fill();
     }));
   }
+  function fmtMoney(n){ n=+n||0; return "$"+n.toLocaleString("en-US",{maximumFractionDigits:0}); }
   function fmtEta(iso){ const d=new Date(iso); if(isNaN(d.getTime())) return null;
     return d.toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}); }
   function etaHtml(r){ if(!r.eta) return ""; const txt=fmtEta(r.eta); if(!txt) return "";
@@ -347,7 +350,8 @@
     const offJobs = jobs.filter(j=>j.off);
     const count = roChips.length + activeJobs.length;
 
-    const flags = `${r.customer_waiting?'<span class="sa-chip high">🪑 Waiter</span>':''}`
+    const flags = `${r.has_unsold?`<span class="sa-chip money">💰 ${fmtMoney(r.unsold_amount)}</span>`:''}`
+      + `${r.customer_waiting?'<span class="sa-chip high">🪑 Waiter</span>':''}`
       + `${etaOverdue(r)?'<span class="sa-chip high">⏰ Overdue</span>':''}`
       + (count>0 ? `<span class="sa-cnt">⚠ ${count}</span>`
                  : (offJobs.length?`<span class="sa-cnt soft">🔌 ${offJobs.length}</span>`
@@ -358,7 +362,20 @@
     const offHtml = offJobs.length
       ? `<div class="sa-offnote">🔌 Turned-off option(s) have errors — fix before offering to the customer:</div>${offJobs.map(jobBlock).join("")}`
       : "";
-    let detail = `${chips?`<div class="sa-chips">${chips}</div>`:""}${activeHtml}${offHtml}`;
+    // $ unsold = jobs recommended to the customer but not approved yet (upsell to chase).
+    const unsoldList = Array.isArray(r.unsold_jobs_list)?r.unsold_jobs_list:[];
+    const unsoldHtml = unsoldList.length
+      ? `<div class="sa-unsold"><div class="sa-unsold-h">💰 Pending approval (unsold) · <b>${fmtMoney(r.unsold_amount)}</b></div>
+         ${unsoldList.map(u=>`<div class="sa-unsold-j"><span>${esc(u.title||"(untitled)")}</span><b>${fmtMoney(u.amount)}</b></div>`).join("")}</div>`
+      : "";
+    // Reason for visit + the tech's comment on it (from Tekmetric customer concerns).
+    const concerns = Array.isArray(r.concerns)?r.concerns:[];
+    const concHtml = concerns.length
+      ? `<div class="sa-conc"><div class="sa-conc-h">🗣 Reason for visit</div>
+         ${concerns.map(c=>`<div class="sa-conc-i"><div class="sa-conc-t">${esc(c.concern||"")}</div>${
+           c.techComment?`<div class="sa-conc-tech">🔧 Tech: ${esc(c.techComment)}</div>`:""}</div>`).join("")}</div>`
+      : "";
+    let detail = `${chips?`<div class="sa-chips">${chips}</div>`:""}${activeHtml}${offHtml}${unsoldHtml}${concHtml}`;
     if (!detail) detail = '<div class="sa-chips"><span class="sa-chip ok">✓ Complete</span></div>';
 
     return `<div class="sa-ro ${sevClass(r)} ${hl?'hl':''} ${open?'open':''}" data-ro="${esc(r.ro_number)}">
@@ -378,6 +395,13 @@
     return `<div class="sa-kpis">${items.map(([n,l,c])=>`<div class="sa-kpi ${c||''}"><div class="n" data-to="${n}">0</div><div class="l">${l}</div></div>`).join("")}</div>`;
   }
   function animateKpis(){ body.querySelectorAll(".sa-kpi .n").forEach(el=>animateCount(el, +el.dataset.to)); }
+  // Total $ pending approval (unsold) across a set of ROs — the upsell to chase.
+  function moneyBar(rows){
+    const tot = rows.reduce((s,r)=>s+(+r.unsold_amount||0),0);
+    if (tot<=0) return "";
+    const n = rows.filter(r=>r.has_unsold).length;
+    return `<div class="sa-moneybar">💰 <b>${fmtMoney(tot)}</b> unsold (pending approval) in ${n} RO${n!==1?'s':''} — use the <b>$ Unsold</b> filter to chase it.</div>`;
+  }
   function emptyState(){
     const b=bucketDef(F.bucket);
     const msg = b && b.mandatory ? "Nothing pending here — all ROs in this column are complete." : "No estimates flagged with this filter.";
@@ -418,6 +442,7 @@
     h += `<div class="sa-headline ${need?'warn':'ok'}">
       <div class="sa-headline-main">${need? `⚠️ ${need} RO${need>1?'s':''} need attention` : "✅ All caught up on active work"}</div>
       <div class="sa-headline-sub">Work In Progress + Completed must have everything filled</div></div>`;
+    h += moneyBar(RO.filter(me));
     h += tabs(counts);
     h += toolbar();
     h += `<div id="sa-list" class="sa-list"></div>`;
@@ -444,6 +469,7 @@
     let h = topNav();
     h += `<div id="sa-curro">${curRoBannerHtml()}</div>`;
     h += kpis([[need,"Need attention","alert"],[ROLL.length,"SAs",""],[RO.length,"Active ROs",""]]);
+    h += moneyBar(RO);
     h += tabs(counts);
     h += toolbar();
     h += `<div class="sa-sec-h">By Service Advisor</div><div id="sa-list" class="sa-acc"></div>`;
@@ -471,6 +497,7 @@
           <span class="sa-acc-bar"><i style="width:${ratio}%"></i></span>
           <span class="sa-acc-badge ${list.length?'':'zero'}">${list.length}</span>
           <span class="sa-acc-of">/${denom}</span>
+          ${(+s.unsold_amount||0)>0?`<span class="sa-acc-unsold">💰 ${fmtMoney(s.unsold_amount)}</span>`:''}
           <span class="sa-acc-caret">▾</span>
         </button>
         <div class="sa-acc-panel">${list.map(r=>roCard(r,false)).join("")||emptyMini()}</div>

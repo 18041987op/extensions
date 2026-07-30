@@ -12,6 +12,8 @@ Herramienta interna para **Service Advisors** y **manager** que audita los Repai
 - **Job autorizado sin labor**
 - **Línea de parte sin precio de venta / sin costo / sin cantidad**
 - **Sin jobs autorizados** (posible estimado no creado — señal suave, puede ser estimado en espera de aprobación)
+- **Concern sin estimado** — el RO tiene *customer concerns* (razón de visita) pero **cero jobs creados**: probablemente falta crear el estimado. El panel muestra la razón de visita y el comentario del técnico sobre ella (vienen del `customerConcerns` del RO).
+- **💰 $ Unsold (por vender)** — suma de los jobs en *Pending approval* (recomendados al cliente pero sin aprobar) por RO y por SA, con el detalle de cada job y su monto. Es el upsell a perseguir; hay filtro "$ Unsold" en la extensión y KPI "$ por vender" en el dashboard.
 
 ## Estructura
 

@@ -144,7 +144,7 @@
 .sa-acc-caret{ color:var(--muted); font-size:11px; transition:transform .25s; }
 .sa-acc-item.open .sa-acc-caret{ transform:rotate(180deg); }
 .sa-acc-panel{ max-height:0; opacity:0; overflow:hidden; padding:0 11px; transition:max-height .32s ease, opacity .25s ease, padding .25s ease; }
-.sa-acc-item.open .sa-acc-panel{ max-height:2400px; opacity:1; padding:2px 11px 11px; }
+.sa-acc-item.open .sa-acc-panel{ max-height:4800px; opacity:1; padding:2px 11px 11px; }
 
 /* RO cards */
 .sa-list{ display:flex; flex-direction:column; gap:8px; }
@@ -165,7 +165,7 @@
 .sa-ro-caret{ color:var(--muted); font-size:11px; transition:transform .22s; flex:0 0 auto; }
 .sa-ro.open .sa-ro-caret{ transform:rotate(180deg); }
 .sa-ro-detail{ max-height:0; opacity:0; overflow:hidden; padding:0 11px; transition:max-height .28s ease, opacity .2s ease, padding .2s ease; }
-.sa-ro.open .sa-ro-detail{ max-height:1600px; opacity:1; padding:0 11px 10px; }
+.sa-ro.open .sa-ro-detail{ max-height:3200px; opacity:1; padding:0 11px 10px; }
 .sa-cnt{ font-size:11px; font-weight:800; padding:2px 8px; border-radius:20px; background:var(--high-bg); color:var(--high); white-space:nowrap; }
 .sa-cnt.soft{ background:#f1f5f9; color:#64748b; }
 .sa-cnt.ok{ background:var(--ok-bg); color:var(--ok); }
@@ -180,6 +180,24 @@
 .sa-chip.low{ background:var(--low-bg); color:var(--low); }
 .sa-chip.ok{ background:var(--ok-bg); color:var(--ok); }
 .sa-chip.jb{ background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+.sa-chip.money{ background:#dcfce7; color:#047857; font-weight:700; }
+
+/* $ unsold (pending approval) */
+.sa-moneybar{ background:linear-gradient(135deg,#ecfdf5,#d1fae5); border:1px solid #a7f3d0; color:#065f46;
+  border-radius:12px; padding:9px 13px; margin-bottom:12px; font-size:12.5px; }
+.sa-unsold{ margin-top:8px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:7px 9px; }
+.sa-unsold-h{ font-size:11.5px; font-weight:700; color:#047857; margin-bottom:4px; }
+.sa-unsold-j{ display:flex; justify-content:space-between; gap:10px; font-size:11.5px; color:#065f46; padding:1px 0; }
+.sa-unsold-j span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sa-acc-unsold{ font-size:10.5px; font-weight:700; color:#047857; white-space:nowrap; flex:0 0 auto; }
+
+/* reason for visit (customer concerns + tech comment) */
+.sa-conc{ margin-top:8px; background:#f8fafc; border:1px solid var(--line); border-radius:8px; padding:7px 9px; }
+.sa-conc-h{ font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); margin-bottom:4px; }
+.sa-conc-i{ padding:4px 0; border-top:1px dashed var(--line); }
+.sa-conc-i:first-of-type{ border-top:none; }
+.sa-conc-t{ font-size:11.5px; color:var(--ink); white-space:pre-wrap; }
+.sa-conc-tech{ font-size:11px; color:var(--low); background:var(--low-bg); border-radius:6px; padding:4px 7px; margin-top:3px; white-space:pre-wrap; }
 
 /* per-job breakdown */
 .sa-jobs{ margin-top:7px; display:flex; flex-direction:column; gap:6px; }
