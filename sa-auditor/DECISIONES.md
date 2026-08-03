@@ -180,3 +180,45 @@ mandatory): pide criterio del SA, no es dato faltante.
 Solo ve los `techComment` de los customer concerns — los findings de inspección
 que no nacen de un concern siguen bloqueados (DVI, ver nota 2026-06-27). Si el
 técnico solo escribió la advertencia en el finding del DVI, no la vemos.
+
+## 2026-08-03 — UX v0.8.5: semántica de color, sync lag informativo, notas del técnico recortadas, versión visible
+
+Feedback de Osman usando la extensión publicada (Published-unlisted en la
+Web Store) sobre el RO 70757:
+
+1. **Verde = completo, ámbar = pendiente.** El bloque "Pending approval
+   (unsold)", el moneybar, el chip 💰 y el total por SA eran verdes — leían
+   como "todo bien" cuando en realidad es dinero que falta por vender. Todo
+   lo unsold pasa a ámbar (paleta `med`). El verde queda reservado para
+   estados completos/OK (✓ Complete, All caught up, badge cero).
+
+2. **"Data out of sync" → "⏱ Sync lag" informativo.** El chip rojo creaba
+   duda sin salida: desde Tekmetric no se puede forzar el sync, así que
+   alarmar no aporta. Cambios: sale de MANDATORY_KEYS y de RO_LEVEL_KEYS
+   (ya no cuenta como "thing to fix" ni mete el RO en la lista de
+   pendientes por sí solo), severidad low, chip gris propio, y un
+   explicador en la tarjeta: Tekmetric es la fuente de la verdad, sus
+   números son los correctos, se resuelve solo con un sync futuro, nada
+   que arreglar en el RO. El aviso dentro del bloque unsold se reescribió
+   igual de claro ("quote from Tekmetric's numbers, not these").
+   El fix de raíz sigue pendiente en el servicio de sync (reconciliar
+   deletes); cuando llegue, este chip desaparece solo.
+
+3. **Notas del técnico a 2 líneas.** En "Reason for visit" el techComment
+   completo enterraba la respuesta al concern. Notas >160 chars se
+   recortan a 2 líneas (line-clamp) con botón "Show full note ▾/▴".
+   El 🚩 tech_warning sigue mostrándose completo aparte (no se recorta el
+   flag, solo la nota). Resumir la nota a "la respuesta al concern" de
+   verdad requeriría IA en el pipeline de sync — anotado como mejora
+   futura, no se hace en el cliente.
+
+4. **Versión visible.** El footer del panel ahora muestra `· v0.8.5`
+   (desde chrome.runtime.getManifest()). Así se sabe al instante qué
+   versión corre en cada máquina cuando la Web Store propaga un update
+   (Chrome chequea updates cada ~5 horas; forzable en chrome://extensions
+   → Developer mode → Update).
+
+**Regla de proceso (pedida explícitamente): no quitar features al
+actualizar.** Antes de tocar UI, revisar este archivo y el diff completo de
+content.js/panel.css para no perder comportamientos ya decididos. Lo bueno
+se mantiene; solo se mejora lo señalado.
