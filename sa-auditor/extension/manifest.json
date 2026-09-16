@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SA Auditor — Tekmetric (AutoRx)",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Shows each Service Advisor their pending ROs grouped by status (admins see the whole team). Activates only on Tekmetric.",
   "permissions": ["storage"],
   "host_permissions": [

@@ -30,7 +30,7 @@
     { key:"part_without_qty",       label:"Part · no qty",         sev:"med"  },
     { key:"concern_no_estimate",    label:"Concern · no estimate", sev:"high" },
     { key:"tech_warning",           label:"🚩 Tech: check path",   sev:"high" },
-    { key:"jobs_out_of_sync",       label:"Data out of sync",      sev:"high" },
+    { key:"jobs_out_of_sync",       label:"⏱ Sync lag",            sev:"low"  },
     { key:"no_authorized_jobs",     label:"No authorized jobs",    sev:"low"  },
     { key:"has_unsold",             label:"$ Unsold",              sev:"med"  },
   ];
@@ -38,14 +38,17 @@
 
   // Mandatory checks for Work In Progress + Completed (everything must be filled).
   // "no_authorized_jobs" is an estimate-only soft signal, so it's not mandatory here.
-  // jobs_out_of_sync is mandatory-level: the RO's job data can't be trusted
-  // (deleted jobs in Tekmetric may still be counted here), so never show it as ok.
+  // jobs_out_of_sync is informational only (not mandatory, not counted as a
+  // "thing to fix"): the SA can't resolve it from Tekmetric — Tekmetric is the
+  // source of truth and the synced copy catches up on its own. It still shows
+  // as a gray chip + explainer so nobody quotes from a stale unsold list.
   const MANDATORY_KEYS = ["missing_vin","missing_miles","missing_address","auth_job_without_tech",
-    "auth_job_without_labor","part_without_price","part_without_cost","part_without_qty",
-    "jobs_out_of_sync"];
+    "auth_job_without_labor","part_without_price","part_without_cost","part_without_qty"];
   // RO-level issues (shown as chips on the RO). Job-level issues (tech/labor/parts)
   // are shown per job via problem_jobs, with the job title.
-  const RO_LEVEL_KEYS = ["missing_vin","missing_miles","missing_address","no_authorized_jobs","concern_no_estimate","tech_warning","jobs_out_of_sync"];
+  // jobs_out_of_sync is NOT here: it renders as its own gray info chip so it
+  // never inflates the red "things to fix" count.
+  const RO_LEVEL_KEYS = ["missing_vin","missing_miles","missing_address","no_authorized_jobs","concern_no_estimate","tech_warning"];
 
   // Status buckets (the 3 Tekmetric board columns).
   const BUCKETS = [
@@ -87,6 +90,10 @@
   // Expand/collapse RO cards (delegated; survives re-renders via openROs).
   body.addEventListener("click",(e)=>{
     if (e.target.closest("a")) return;            // let the RO link work
+    const more = e.target.closest(".sa-conc-more");
+    if (more){ const t=more.previousElementSibling;
+      const clamped=t.classList.toggle("clamp");
+      more.textContent = clamped?"Show full note ▾":"Show less ▴"; return; }
     const head = e.target.closest(".sa-ro-head"); if(!head) return;
     const card = head.closest(".sa-ro"); if(!card) return;
     const id = card.dataset.ro;
@@ -168,7 +175,9 @@
   // Does this RO still need work given its bucket's rules?
   function incomplete(r){
     const b = bucketDef(bucketOf(r)); if(!b) return false;
-    return b.mandatory ? MANDATORY_KEYS.some(k=>r[k]===true) : r._issues.length>0;
+    // Sync lag alone never marks an RO as pending — it's informational.
+    return b.mandatory ? MANDATORY_KEYS.some(k=>r[k]===true)
+                       : r._issues.some(i=>i.key!=="jobs_out_of_sync");
   }
   function sevClass(r){
     const b = bucketDef(bucketOf(r));
@@ -355,6 +364,7 @@
     const offJobs = jobs.filter(j=>j.off);
     const count = roChips.length + activeJobs.length;
 
+    const syncLag = r.jobs_out_of_sync===true;
     const flags = `${r.has_unsold?`<span class="sa-chip money">💰 ${fmtMoney(r.unsold_amount)}</span>`:''}`
       + `${r.customer_waiting?'<span class="sa-chip high">🪑 Waiter</span>':''}`
       + `${etaOverdue(r)?'<span class="sa-chip high">⏰ Overdue</span>':''}`
@@ -362,7 +372,8 @@
                  : (offJobs.length?`<span class="sa-cnt soft">🔌 ${offJobs.length}</span>`
                                   :'<span class="sa-cnt ok">✓</span>'));
 
-    const chips = `${!etaOverdue(r)?etaHtml(r):''}${roChips.map(i=>`<span class="sa-chip ${i.sev}">${i.label}</span>`).join("")}`;
+    const chips = `${!etaOverdue(r)?etaHtml(r):''}${roChips.map(i=>`<span class="sa-chip ${i.sev}">${i.label}</span>`).join("")}`
+      + `${syncLag?'<span class="sa-chip sync" title="The synced copy of this RO is behind Tekmetric. Tekmetric is correct — nothing to fix here.">⏱ Sync lag</span>':''}`;
     const activeHtml = activeJobs.map(jobBlock).join("");
     const offHtml = offJobs.length
       ? `<div class="sa-offnote">🔌 Turned-off option(s) have errors — fix before offering to the customer:</div>${offJobs.map(jobBlock).join("")}`
@@ -372,20 +383,27 @@
     const unsoldHtml = unsoldList.length
       ? `<div class="sa-unsold"><div class="sa-unsold-h">💰 Pending approval (unsold) · <b>${fmtMoney(r.unsold_amount)}</b></div>
          ${unsoldList.map(u=>`<div class="sa-unsold-j"><span>${esc(u.title||"(untitled)")}</span><b>${fmtMoney(u.amount)}</b></div>`).join("")}${
-           r.jobs_out_of_sync?`<div class="sa-unsold-warn">⚠ Totals don't match Tekmetric — this list may include jobs already deleted there. Verify in Tekmetric before quoting the customer.</div>`:""}</div>`
+           syncLag?`<div class="sa-unsold-warn">⚠ This list may be behind Tekmetric (it can include jobs already deleted there). Quote the customer from Tekmetric's numbers, not these.</div>`:""}</div>`
+      : "";
+    // Sync-lag explainer: what it means and that no action is needed here.
+    const syncHtml = syncLag
+      ? `<div class="sa-sync-note">⏱ <b>Sync lag:</b> the synced copy of this RO is behind Tekmetric (it may still count jobs deleted there). <b>Tekmetric is correct — use its numbers.</b> This clears on its own with a future sync; nothing to fix on this RO.</div>`
       : "";
     // Reason for visit + the tech's comment on it (from Tekmetric customer concerns).
     const concerns = Array.isArray(r.concerns)?r.concerns:[];
     // c.warn (set by the view): the tech's comment suggests a different repair
     // path (engine/trans replacement, viability, safety) — highlight it so the
     // SA doesn't keep selling work the tech is advising against.
+    // Long tech notes are clamped to 2 lines with a "full note" toggle — the SA
+    // needs the takeaway at a glance, not the tech's whole write-up.
     const concHtml = concerns.length
       ? `<div class="sa-conc"><div class="sa-conc-h">🗣 Reason for visit</div>
-         ${concerns.map(c=>`<div class="sa-conc-i${c.warn?' warn':''}"><div class="sa-conc-t">${esc(c.concern||"")}</div>${
-           c.techComment?`<div class="sa-conc-tech">🔧 Tech: ${esc(c.techComment)}</div>`:""}${
-           c.warn?`<div class="sa-conc-flag">🚩 The tech's note may change the repair path (replacement / viability / safety). Align with the customer before selling more work on the current path.</div>`:""}</div>`).join("")}</div>`
+         ${concerns.map(c=>{ const long=(c.techComment||"").length>160;
+           return `<div class="sa-conc-i${c.warn?' warn':''}"><div class="sa-conc-t">${esc(c.concern||"")}</div>${
+           c.techComment?`<div class="sa-conc-tech${long?' clamp':''}">🔧 Tech: ${esc(c.techComment)}</div>${long?'<button class="sa-conc-more">Show full note ▾</button>':''}`:""}${
+           c.warn?`<div class="sa-conc-flag">🚩 The tech's note may change the repair path (replacement / viability / safety). Align with the customer before selling more work on the current path.</div>`:""}</div>`;}).join("")}</div>`
       : "";
-    let detail = `${chips?`<div class="sa-chips">${chips}</div>`:""}${activeHtml}${offHtml}${unsoldHtml}${concHtml}`;
+    let detail = `${chips?`<div class="sa-chips">${chips}</div>`:""}${activeHtml}${offHtml}${unsoldHtml}${syncHtml}${concHtml}`;
     if (!detail) detail = '<div class="sa-chips"><span class="sa-chip ok">✓ Complete</span></div>';
 
     return `<div class="sa-ro ${sevClass(r)} ${hl?'hl':''} ${open?'open':''}" data-ro="${esc(r.ro_number)}">
@@ -418,7 +436,10 @@
     return `<div class="sa-empty"><div class="sa-empty-ic">🎉</div><div class="sa-empty-ttl">All clear</div><div class="sa-empty-sub">${msg}</div></div>`;
   }
   function emptyMini(){ return `<div class="sa-empty mini">Nothing here 🎉</div>`; }
-  function foot(t){ return `<div class="sa-foot">${esc(t)}</div>`; }
+  // Footer always shows the running version so anyone can tell at a glance
+  // whether Chrome has picked up the latest update from the Web Store.
+  const VERSION = (chrome.runtime && chrome.runtime.getManifest) ? chrome.runtime.getManifest().version : "";
+  function foot(t){ return `<div class="sa-foot">${esc(t)}${VERSION?` · v${VERSION}`:""}</div>`; }
 
   /* ---------- "current RO" banner (shows on top whenever you open an RO) ---------- */
   function roIssueCount(r){

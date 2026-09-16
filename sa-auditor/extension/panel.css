@@ -181,17 +181,24 @@
 .sa-chip.low{ background:var(--low-bg); color:var(--low); }
 .sa-chip.ok{ background:var(--ok-bg); color:var(--ok); }
 .sa-chip.jb{ background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
-.sa-chip.money{ background:#dcfce7; color:#047857; font-weight:700; }
+.sa-chip.money{ background:var(--med-bg); color:#b45309; font-weight:700; }
+.sa-chip.sync{ background:#e2e8f0; color:#475569; }
 
-/* $ unsold (pending approval) */
-.sa-moneybar{ background:linear-gradient(135deg,#ecfdf5,#d1fae5); border:1px solid #a7f3d0; color:#065f46;
+/* $ unsold (pending approval) — amber: it's money still to chase, NOT "all good".
+   Green is reserved for complete/OK states only. */
+.sa-moneybar{ background:linear-gradient(135deg,#fffbeb,#fef3c7); border:1px solid #fcd34d; color:#92400e;
   border-radius:12px; padding:9px 13px; margin-bottom:12px; font-size:12.5px; }
-.sa-unsold{ margin-top:8px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:7px 9px; }
-.sa-unsold-h{ font-size:11.5px; font-weight:700; color:#047857; margin-bottom:4px; }
-.sa-unsold-j{ display:flex; justify-content:space-between; gap:10px; font-size:11.5px; color:#065f46; padding:1px 0; }
+.sa-unsold{ margin-top:8px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:7px 9px; }
+.sa-unsold-h{ font-size:11.5px; font-weight:700; color:#b45309; margin-bottom:4px; }
+.sa-unsold-j{ display:flex; justify-content:space-between; gap:10px; font-size:11.5px; color:#92400e; padding:1px 0; }
 .sa-unsold-j span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.sa-unsold-warn{ margin-top:5px; font-size:11px; font-weight:700; color:#b45309; background:#fffbeb; border:1px solid #fcd34d; border-radius:6px; padding:4px 7px; }
-.sa-acc-unsold{ font-size:10.5px; font-weight:700; color:#047857; white-space:nowrap; flex:0 0 auto; }
+.sa-unsold-warn{ margin-top:5px; font-size:11px; font-weight:700; color:#b45309; background:#fff7ed; border:1px solid #fdba74; border-radius:6px; padding:4px 7px; }
+.sa-acc-unsold{ font-size:10.5px; font-weight:700; color:#b45309; white-space:nowrap; flex:0 0 auto; }
+
+/* sync-lag explainer: informational (gray-blue), not an alarm — the SA can't
+   fix it from Tekmetric and Tekmetric itself is always the source of truth. */
+.sa-sync-note{ margin-top:8px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:7px 9px;
+  font-size:11.5px; color:#475569; line-height:1.5; }
 
 /* reason for visit (customer concerns + tech comment) */
 .sa-conc{ margin-top:8px; background:#f8fafc; border:1px solid var(--line); border-radius:8px; padding:7px 9px; }
@@ -200,6 +207,10 @@
 .sa-conc-i:first-of-type{ border-top:none; }
 .sa-conc-t{ font-size:11.5px; color:var(--ink); white-space:pre-wrap; }
 .sa-conc-tech{ font-size:11px; color:var(--low); background:var(--low-bg); border-radius:6px; padding:4px 7px; margin-top:3px; white-space:pre-wrap; }
+.sa-conc-tech.clamp{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.sa-conc-more{ display:inline-block; margin-top:3px; background:none; border:none; padding:0; cursor:pointer;
+  font-size:11px; font-weight:700; color:var(--accent); }
+.sa-conc-more:hover{ text-decoration:underline; }
 .sa-conc-i.warn{ background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:5px 7px; margin-top:4px; }
 .sa-conc-i.warn .sa-conc-tech{ color:#991b1b; background:#fee2e2; }
 .sa-conc-flag{ font-size:11px; font-weight:700; color:#b91c1c; background:#fff1f2; border:1px dashed #fca5a5; border-radius:6px; padding:4px 7px; margin-top:4px; }
